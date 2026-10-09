@@ -9,11 +9,6 @@ Abyss Engine
 Custom C++17 engine. Vulkan renderer. No Unity. No Unreal. No Godot. No CryEngine. Built from scratch.
 Core Systems
 
-AbyssEngine.dll — core engine (vkrender.cpp, third_party_impl.cpp)
-AbyssUI.dll — UI and main menu (mainui.cpp, ImGui files)
-AbyssMod.dll — mod loading (modloader.cpp)
-DATS.exe — thin executable that links against the DLLs (main.cpp)
-Build System
 
 Compile.py — incremental, multithreaded build system. TUI. Left-centered console UI. Saves 400-600 hours per year.
 Compile.bat — legacy batch file. Embedded logic.
@@ -23,6 +18,7 @@ LLVM — backend. Used by Clang.
 glslangValidator — shader compilation.
 builds/ — output folder. Never compiles to Source/engine/.
 No single massive executable. Modules compile to DLLs.
+
 Cross-Platform
 
 Windows — primary target.
@@ -33,7 +29,7 @@ macOS — no. Same reason.
 Consoles — no. Sony, Microsoft, Nintendo require proprietary APIs. Not supported.
 Renderer
 
-Vulkan only. No OpenGL. No DirectX 12.
+Vulkan only. No OpenGL. No DirectX 12. (Maybe)
 VK_PRESENT_MODE_MAILBOX — preferred. Uncapped FPS.
 MAX_FRAMES_IN_FLIGHT = 2 — triple buffering caused queue backpressure on Intel.
 D16_UNORM — depth format. Half bandwidth of D32.
