@@ -1,4 +1,5 @@
 DATS — Dynamic Arms Training Simulator
+v2026.10
 README
 
 A combined-arms military simulation built on Abyss Engine. No flags. No bad guys. Just humans. And the Geiger meter rests.
