@@ -26,15 +26,15 @@ static std::vector<unsigned char> MakeCheckerTexture(int size, int squares) {
 int main() {
     try {
         VkRenderer renderer;
-        if (!renderer.init("DATS — Terrain", 1280, 720)) {
+        if (!renderer.init("DATS - Terrain", 1280, 720)) {
             std::cerr << "Renderer init failed\n";
             return EXIT_FAILURE;
         }
 
         std::cout << "[1] Building terrain...\n";
 
-        const int   CHUNKS = 16;
-        const int   GRID_N = 16;
+        const int   CHUNKS = 8;
+        const int   GRID_N = 32;
         const float WORLD  = 2000.0f;
 
         auto chunks = Terrain::BuildAll(renderer, CHUNKS, GRID_N, WORLD);

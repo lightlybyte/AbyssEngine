@@ -37,7 +37,6 @@ INCLUDES = [
 LIBS_WINDOWS = [
     "C:/VulkanSDK/1.4.363.0/Lib/vulkan-1.lib",
     "-lglfw3",
-    "-lwebp",
     "-lgdi32",
     "-luser32",
     "-lshell32",

@@ -16,6 +16,7 @@
 #include <cstring>
 #include <chrono>
 #include <unordered_map>
+#include <algorithm>
 #include <limits>
 #include <thread>
 
@@ -478,8 +479,8 @@ struct VkRendererImpl {
     }
 
     void createPipeline() {
-        VkShaderModule vert = loadShader("Build/Windows/Shaders/vkrender.vert.spv");
-        VkShaderModule frag = loadShader("Build/Windows/Shaders/vkrender.frag.spv");
+        VkShaderModule vert = loadShader("Shaders/vkrender.vert.spv");
+        VkShaderModule frag = loadShader("Shaders/vkrender.frag.spv");
 
         VkPipelineShaderStageCreateInfo stages[2]{};
         stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
