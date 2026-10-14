@@ -24,13 +24,13 @@ SHADERS     = ROOT / "Shaders"
 
 VULKAN_SDK  = Path("C:/VulkanSDK/1.4.363.0")
 
-CXX         = "clang++"
+CXX         = "g++"
 CXX_FLAGS   = ["-std=c++17", "-O2", "-ffast-math"]
 
 INCLUDES = [
-    "Source/Engine",
-    "Source/UI",
-    "Source/Game",
+    str(SOURCE / "Engine"),
+    str(SOURCE / "UI"),
+    str(SOURCE / "Game"),
     "C:/VulkanSDK/1.4.363.0/Include",
 ]
 
@@ -149,7 +149,7 @@ def build(platform, full_wipe):
     build_shaders(build_dir)
 
     # Sources
-    cpp_files = find_files("*.cpp", SOURCE)
+    cpp_files = find_files("**/*.cpp", SOURCE)
     if not cpp_files:
         log("No .cpp files found in Source/.")
         return
@@ -240,4 +240,4 @@ if __name__ == "__main__":
         sys.exit(1)
     except Exception as e:
         print(f"\nBUILD FAILED: {e}")
-        sys.exit(1)
+        input("Press Enter to exit...")
