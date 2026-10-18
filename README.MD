@@ -4,6 +4,6 @@ Currently, we are on Abyss Engine v2027.Q1 (Endeavor) - INDEV and is not reccome
 Releases (Current marked as "<="):
 - v2027.Q1 (Endeavor) <=
 - v2027.Q2 (Solace)
-- v2027.Q3 (Saggitarius)
+- v2027.Q3 (Sagittarius)
 - v2027.Q4 (Enceladus)
 
