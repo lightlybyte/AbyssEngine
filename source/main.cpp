@@ -2,27 +2,25 @@
 #include <vector>
 #include <string>
 
-// Vulkan
-#include <vulkan/vulkan.h>
-
 // GLFW
-#include <GLFW/glfw3.h>
+#include "GLFW/glfw3.h"
 
 // Dear ImGui
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_vulkan.h"
 
 // Wren
 #include "wren.h"
+
+// Abyss Renderer
+#include "vkrender.h"
 
 // ---------------------------------------------------------
 // Engine State (lowercase)
 // ---------------------------------------------------------
 static GLFWwindow* g_window = nullptr;
-static VkInstance g_vk_instance = VK_NULL_HANDLE;
+static VkRenderer g_renderer;
 
-// The path where projects will be stored
 static const std::string PROJECTS_DIR = "C:\\AbyssProjects";
 
 struct project_info {
@@ -31,7 +29,6 @@ struct project_info {
     std::string last_opened;
 };
 
-// Start empty. We will populate this when we write the project logic.
 static std::vector<project_info> g_recent_projects = {};
 
 // ---------------------------------------------------------
@@ -63,11 +60,9 @@ static void draw_hub_ui() {
     
     ImGui::Begin("Abyss Engine Hub", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-    // Title
     ImGui::TextColored(ImVec4(0.8f, 0.8f, 1.0f, 1.0f), "Abyss Engine v2027.Q1 (Endeavor)");
     ImGui::Separator();
 
-    // Projects List
     ImGui::Text("Projects");
     
     if (g_recent_projects.empty()) {
@@ -82,14 +77,11 @@ static void draw_hub_ui() {
             for (const auto& proj : g_recent_projects) {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                
                 if (ImGui::Selectable(proj.name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
                     std::cout << "Opening: " << proj.name << std::endl;
                 }
-                
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", proj.path.c_str());
-                
                 ImGui::TableSetColumnIndex(2);
                 ImGui::Text("%s", proj.last_opened.c_str());
             }
@@ -100,7 +92,6 @@ static void draw_hub_ui() {
     ImGui::Spacing();
     ImGui::Separator();
     
-    // Action Buttons
     if (ImGui::Button("New Project", ImVec2(150, 40))) {
         std::cout << "New Project clicked - logic coming soon" << std::endl;
     }
@@ -127,35 +118,29 @@ int main() {
         std::cerr << "[Abyss Engine] Failed to init GLFW" << std::endl;
         return -1;
     }
+
+    // Fullscreen Windowed Setup
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    g_window = glfwCreateWindow(1920, 1080, "Abyss Engine Hub", nullptr, nullptr);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); // Borderless
+    
+    g_window = glfwCreateWindow(mode->width, mode->height, "Abyss Engine Hub", nullptr, nullptr);
+    
     if (!g_window) {
         std::cerr << "[Abyss Engine] Failed to create window" << std::endl;
         glfwTerminate();
         return -1;
     }
 
-    // 2. Init Vulkan
-    VkApplicationInfo app_info{};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = "Abyss Engine Hub";
-    app_info.apiVersion = VK_API_VERSION_1_0;
-
-    VkInstanceCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create_info.pApplicationInfo = &app_info;
-    
-    uint32_t glfw_ext_count = 0;
-    const char** glfw_exts = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
-    create_info.enabledExtensionCount = glfw_ext_count;
-    create_info.ppEnabledExtensionNames = glfw_exts;
-
-    if (vkCreateInstance(&create_info, nullptr, &g_vk_instance) != VK_SUCCESS) {
-        std::cerr << "[Abyss Engine] Failed to create Vulkan instance" << std::endl;
+    // 2. Init Renderer (Vulkan + ImGui Backend)
+    if (!g_renderer.init(g_window)) {
+        std::cerr << "[Abyss Engine] Failed to init renderer" << std::endl;
         return -1;
     }
 
-    // 3. Init ImGui
+    // 3. Init ImGui Core
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -174,13 +159,15 @@ int main() {
         draw_hub_ui();
 
         ImGui::Render();
-        // Rendering to the screen requires the full Vulkan swapchain setup.
+        
+        // Render the frame (Placeholder for now)
+        g_renderer.draw_frame();
     }
 
     // 5. Cleanup
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    vkDestroyInstance(g_vk_instance, nullptr);
+    g_renderer.shutdown();
     glfwDestroyWindow(g_window);
     glfwTerminate();
 

@@ -7,7 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 # Paths
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.path.join(ROOT, "source")
-INCLUDE = os.path.join(ROOT, "include") # Now contains GLFW and ImGui
+INCLUDE = os.path.join(ROOT, "include")
+LIB_DIR = os.path.join(ROOT, "lib") # GLFW static libs are here
 WREN_SRC = os.path.join(ROOT, "compiler", "src")
 BUILD_DIR = os.path.join(ROOT, "Build", "Windows")
 VULKAN_ROOT = os.path.join(ROOT, "vulkansdk")
@@ -20,8 +21,8 @@ CXX = "g++"
 CXX_FLAGS = [
     "-std=c++17", "-O2", 
     "-I", VULKAN_INCLUDE,
-    "-I", INCLUDE,                                  # <-- GLFW and ImGui are here
-    "-I", os.path.join(SOURCE, "backends"),         # <-- ImGui backends
+    "-I", INCLUDE,                                  # GLFW and ImGui headers
+    "-I", os.path.join(SOURCE, "backends"),         # ImGui backends
     "-I", os.path.join(WREN_SRC, "include"),
     "-I", os.path.join(WREN_SRC, "vm")
 ]
@@ -50,7 +51,8 @@ C_FILES = [
 # Libraries
 LIBS = [
     os.path.join(VULKAN_LIB, "vulkan-1.lib"),
-    "-lglfw3",
+    "-L", LIB_DIR,      # Tells linker to look in C:\AbyssEngine\lib
+    "-lglfw3",          # Links libglfw3.a (static)
     "-lgdi32", "-luser32", "-lshell32", "-lole32"
 ]
 
