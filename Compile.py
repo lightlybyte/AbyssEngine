@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import glob
+import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -54,7 +55,6 @@ LIBS = [
     "-lgdi32", "-luser32", "-lshell32", "-lole32"
 ]
 
-# A lock to prevent print statements from tangling in the console
 print_lock = threading.Lock()
 
 def log(msg):
@@ -83,12 +83,22 @@ def compile_cpp_file(src):
     subprocess.run(cmd, check=True)
     return obj
 
+def package_fonts():
+    log("Packaging fonts into Build directory...")
+    src_fonts = os.path.join(ROOT, "fonts")
+    dst_fonts = os.path.join(BUILD_DIR, "fonts")
+    
+    if os.path.exists(dst_fonts):
+        shutil.rmtree(dst_fonts)
+        
+    shutil.copytree(src_fonts, dst_fonts)
+    log(f"[PACKAGE] Copied fonts/ to {dst_fonts}")
+
 def main():
     log("Abyss Engine Builder")
     
     cpp_files = find_cpp_files() + CPP_FILES
     
-    # Multithreaded compilation
     with ThreadPoolExecutor() as pool:
         c_objects = list(pool.map(compile_c_file, C_FILES))
         cpp_objects = list(pool.map(compile_cpp_file, cpp_files))
@@ -97,15 +107,16 @@ def main():
 
     exe = os.path.join(BUILD_DIR, "AbyssEngine.exe")
     
-    # Link
     log(f"Linking {exe}...")
     link_cmd = [CXX] + all_objects + ["-o", exe] + LIBS
     subprocess.run(link_cmd, check=True)
+    
+    # Package assets
+    package_fonts()
+
     log("Build Complete. Launching...")
 
-    # Run and capture output
     try:
-        # Using Popen to capture output in real-time
         process = subprocess.Popen(
             [exe], 
             stdout=subprocess.PIPE, 
@@ -114,7 +125,6 @@ def main():
             bufsize=1
         )
         
-        # Print output line by line as it comes in
         for line in process.stdout:
             log(f"[APP] {line.strip()}")
             

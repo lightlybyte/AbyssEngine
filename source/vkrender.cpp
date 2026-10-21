@@ -33,7 +33,7 @@ bool VkRenderer::init(GLFWwindow* win) {
     vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
     physical_device = devices[0];
 
-    // 4. Find Queue Families (Graphics & Present)
+    // 4. Find Queue Families
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
     std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
@@ -81,6 +81,7 @@ bool VkRenderer::init(GLFWwindow* win) {
     // 6. Create Swapchain
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities);
+    swapchain_extent = capabilities.currentExtent;
 
     uint32_t format_count;
     vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, nullptr);
@@ -94,7 +95,7 @@ bool VkRenderer::init(GLFWwindow* win) {
     swap_create_info.minImageCount = capabilities.minImageCount + 1;
     swap_create_info.imageFormat = surface_format.format;
     swap_create_info.imageColorSpace = surface_format.colorSpace;
-    swap_create_info.imageExtent = capabilities.currentExtent;
+    swap_create_info.imageExtent = swapchain_extent;
     swap_create_info.imageArrayLayers = 1;
     swap_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swap_create_info.preTransform = capabilities.currentTransform;
@@ -157,8 +158,8 @@ bool VkRenderer::init(GLFWwindow* win) {
         framebuffer_info.renderPass = render_pass;
         framebuffer_info.attachmentCount = 1;
         framebuffer_info.pAttachments = &swapchain_image_views[i];
-        framebuffer_info.width = capabilities.currentExtent.width;
-        framebuffer_info.height = capabilities.currentExtent.height;
+        framebuffer_info.width = swapchain_extent.width;
+        framebuffer_info.height = swapchain_extent.height;
         framebuffer_info.layers = 1;
         vkCreateFramebuffer(device, &framebuffer_info, nullptr, &swapchain_framebuffers[i]);
     }
@@ -209,22 +210,9 @@ bool VkRenderer::init(GLFWwindow* win) {
     init_info.MinImageCount = 2;
     init_info.ImageCount = (uint32_t)swapchain_images.size();
     
-    ImGui_ImplVulkan_Init(&init_info, render_pass);
+    ImGui_ImplVulkan_Init(&init_info);
     
-    // Upload Fonts
-    VkCommandBuffer cmd = command_buffers[0];
-    VkCommandBufferBeginInfo begin_info{};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(cmd, &begin_info);
-    ImGui_ImplVulkan_CreateFontsTexture();
-    vkEndCommandBuffer(cmd);
-
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &cmd;
-    vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphics_queue);
+    // REMOVED: Manual Font upload. The backend handles this in ImGui_ImplVulkan_NewFrame().
 
     return true;
 }
@@ -247,7 +235,7 @@ void VkRenderer::draw_frame() {
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = render_pass;
     render_pass_info.framebuffer = swapchain_framebuffers[image_index];
-    render_pass_info.renderArea.extent = { 1920, 1080 }; // Simplified for now
+    render_pass_info.renderArea.extent = swapchain_extent;
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_color;
 

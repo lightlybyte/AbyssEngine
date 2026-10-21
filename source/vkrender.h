@@ -38,4 +38,7 @@ private:
     VkFence in_flight_fence = VK_NULL_HANDLE;
     
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+    
+    // We need the extent for the render pass
+    VkExtent2D swapchain_extent{};
 };

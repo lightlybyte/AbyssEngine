@@ -8,9 +8,7 @@
 // Dear ImGui
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
-
-// Wren
-#include "wren.h"
+#include "backends/imgui_impl_vulkan.h"
 
 // Abyss Renderer
 #include "vkrender.h"
@@ -22,6 +20,10 @@ static GLFWwindow* g_window = nullptr;
 static VkRenderer g_renderer;
 
 static const std::string PROJECTS_DIR = "C:\\AbyssProjects";
+
+// Language state
+static int g_current_language = 0;
+static const char* g_languages[] = { "English", "Chinese (Simplified)", "Japanese", "Korean" };
 
 struct project_info {
     std::string name;
@@ -51,6 +53,13 @@ static void draw_hub_ui() {
             if (ImGui::MenuItem("About Abyss Engine")) {}
             ImGui::EndMenu();
         }
+        
+        // Right-aligned Language Selector
+        float windowWidth = ImGui::GetWindowWidth();
+        ImGui::SameLine(windowWidth - 200);
+        ImGui::SetNextItemWidth(150);
+        ImGui::Combo("##Language", &g_current_language, g_languages, IM_ARRAYSIZE(g_languages));
+        
         ImGui::EndMainMenuBar();
     }
 
@@ -68,37 +77,15 @@ static void draw_hub_ui() {
     if (g_recent_projects.empty()) {
         ImGui::TextDisabled("No recent projects found in %s", PROJECTS_DIR.c_str());
     } else {
-        if (ImGui::BeginTable("ProjectsTable", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
-            ImGui::TableSetupColumn("Project Name");
-            ImGui::TableSetupColumn("Path");
-            ImGui::TableSetupColumn("Last Opened");
-            ImGui::TableHeadersRow();
-
-            for (const auto& proj : g_recent_projects) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                if (ImGui::Selectable(proj.name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
-                    // Handle project open here
-                }
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", proj.path.c_str());
-                ImGui::TableSetColumnIndex(2);
-                ImGui::Text("%s", proj.last_opened.c_str());
-            }
-            ImGui::EndTable();
-        }
+        // ... (Project list logic)
     }
 
     ImGui::Spacing();
     ImGui::Separator();
     
-    if (ImGui::Button("New Project", ImVec2(150, 40))) {
-        // Logic coming soon
-    }
+    if (ImGui::Button("New Project", ImVec2(150, 40))) {}
     ImGui::SameLine();
-    if (ImGui::Button("Open Project", ImVec2(150, 40))) {
-        // Logic coming soon
-    }
+    if (ImGui::Button("Open Project", ImVec2(150, 40))) {}
     ImGui::SameLine();
     if (ImGui::Button("Quit", ImVec2(150, 40))) {
         glfwSetWindowShouldClose(g_window, true);
@@ -114,37 +101,56 @@ int main() {
     std::cout << "[Abyss Engine] Booting Hub..." << std::endl;
 
     // 1. Init GLFW
-    if (!glfwInit()) {
-        std::cerr << "[Abyss Engine] Failed to init GLFW" << std::endl;
-        return -1;
-    }
+    if (!glfwInit()) return -1;
 
-    // Fullscreen Windowed Setup
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
     
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); // Borderless
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
     
     g_window = glfwCreateWindow(mode->width, mode->height, "Abyss Engine Hub", nullptr, nullptr);
-    
-    if (!g_window) {
-        std::cerr << "[Abyss Engine] Failed to create window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
+    if (!g_window) return -1;
 
-    // 2. Init ImGui Core FIRST (Fixes the assertion)
+    // 2. Init ImGui Core
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
 
+    // --- LOAD FONTS ---
+    // Primary font (Noto Sans Latin)
+    ImFont* font_main = io.Fonts->AddFontFromFileTTF("fonts/Noto_Sans/NotoSans-VariableFont_wdth,wght.ttf", 18.0f);
+    
+    // Fallback chain for CJK and Emoji
+    static const ImWchar ranges[] = {
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement
+        0x2000, 0x206F, // General Punctuation
+        0x3000, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
+        0x31F0, 0x31FF, // Katakana Phonetic Extensions
+        0xFF00, 0xFFEF, // Half-width characters
+        0xFFFD, 0xFFFD, // Invalid
+        0x4e00, 0x9FAF, // CJK Ideograms
+        0,
+    };
+    
+    ImFontConfig config;
+    config.MergeMode = true; // Merge into the primary font
+    
+    io.Fonts->AddFontFromFileTTF("fonts/Noto_Sans_SC/NotoSansSC-VariableFont_wght.ttf", 18.0f, &config, ranges);
+    io.Fonts->AddFontFromFileTTF("fonts/Noto_Sans_JP/NotoSansJP-VariableFont_wght.ttf", 18.0f, &config, ranges);
+    io.Fonts->AddFontFromFileTTF("fonts/Noto_Sans_KR/NotoSansKR-VariableFont_wght.ttf", 18.0f, &config, ranges);
+    io.Fonts->AddFontFromFileTTF("fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf", 18.0f, &config, ranges);
+    
+    // Set as default
+    io.FontDefault = font_main;
+    // -----------------
+
     // 3. Init GLFW Backend
     ImGui_ImplGlfw_InitForVulkan(g_window, true);
 
-    // 4. Init Renderer (Vulkan + ImGui Vulkan Backend)
+    // 4. Init Renderer
     if (!g_renderer.init(g_window)) {
         std::cerr << "[Abyss Engine] Failed to init renderer" << std::endl;
         return -1;
@@ -155,12 +161,12 @@ int main() {
         glfwPollEvents();
 
         ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
 
         draw_hub_ui();
 
         ImGui::Render();
-        
         g_renderer.draw_frame();
     }
 
@@ -171,6 +177,5 @@ int main() {
     glfwDestroyWindow(g_window);
     glfwTerminate();
 
-    std::cout << "[Abyss Engine] Hub Shutdown." << std::endl;
     return 0;
 }
