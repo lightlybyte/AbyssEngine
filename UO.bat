@@ -1,25 +1,29 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+
 echo UO: Booting Abyss Engine...
 
-REM Add stripped Vulkan and Wren to PATH for this session
-set PATH=%CD%\vulkansdk\windows\bin;%CD%\vulkansdk\windows\dll;%CD%\compiler;%PATH%
+REM Add the stripped Vulkan and GLFW to PATH for this session
+set PATH=%CD%\vulkansdk\windows\bin;%CD%\vulkansdk\windows\dll;%CD%\lib;%PATH%
 
 REM Check if Compile.py exists. If not, call the medic.
 if not exist Compile.py (
     echo UO: Compile.py missing. Calling FetchFixedFiles...
-    python FetchFixedFiles.py Compile.py
+    if exist FetchFixedFiles.py (
+        python FetchFixedFiles.py Compile.py
+    ) else (
+        echo UO: FetchFixedFiles.py not found. Cannot heal.
+        exit /b 1
+    )
 )
 
 REM The parent calls the child by full name
-python Compile.py --target Windows --config Release
+python Compile.py
 
 if %errorlevel% neq 0 (
     echo UO: Compile.py failed. The engine is a brick.
-    pause
+    exit /b 1
 )
 
-echo UO: Build successful. Launching...
-start "" "Build\Windows\AbyssEngine.exe"
-pause
+echo UO: Execution finished.

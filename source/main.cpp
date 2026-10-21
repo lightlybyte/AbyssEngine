@@ -78,7 +78,7 @@ static void draw_hub_ui() {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Selectable(proj.name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)) {
-                    std::cout << "Opening: " << proj.name << std::endl;
+                    // Handle project open here
                 }
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%s", proj.path.c_str());
@@ -93,11 +93,11 @@ static void draw_hub_ui() {
     ImGui::Separator();
     
     if (ImGui::Button("New Project", ImVec2(150, 40))) {
-        std::cout << "New Project clicked - logic coming soon" << std::endl;
+        // Logic coming soon
     }
     ImGui::SameLine();
     if (ImGui::Button("Open Project", ImVec2(150, 40))) {
-        std::cout << "Open Project clicked - logic coming soon" << std::endl;
+        // Logic coming soon
     }
     ImGui::SameLine();
     if (ImGui::Button("Quit", ImVec2(150, 40))) {
@@ -134,22 +134,23 @@ int main() {
         return -1;
     }
 
-    // 2. Init Renderer (Vulkan + ImGui Backend)
+    // 2. Init ImGui Core FIRST (Fixes the assertion)
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGui::StyleColorsDark();
+
+    // 3. Init GLFW Backend
+    ImGui_ImplGlfw_InitForVulkan(g_window, true);
+
+    // 4. Init Renderer (Vulkan + ImGui Vulkan Backend)
     if (!g_renderer.init(g_window)) {
         std::cerr << "[Abyss Engine] Failed to init renderer" << std::endl;
         return -1;
     }
 
-    // 3. Init ImGui Core
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForVulkan(g_window, true);
-
-    // 4. The Hub Loop
+    // 5. The Hub Loop
     while (!glfwWindowShouldClose(g_window)) {
         glfwPollEvents();
 
@@ -160,14 +161,13 @@ int main() {
 
         ImGui::Render();
         
-        // Render the frame (Placeholder for now)
         g_renderer.draw_frame();
     }
 
-    // 5. Cleanup
+    // 6. Cleanup
+    g_renderer.shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    g_renderer.shutdown();
     glfwDestroyWindow(g_window);
     glfwTerminate();
 
