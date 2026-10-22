@@ -9,36 +9,30 @@ from concurrent.futures import ThreadPoolExecutor
 # Paths
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.path.join(ROOT, "source")
-INCLUDE = os.path.join(ROOT, "include")
+INCLUDE = os.path.join(ROOT, "include") # Nuklear is here now
 LIB_DIR = os.path.join(ROOT, "lib")
 WREN_SRC = os.path.join(ROOT, "compiler", "src")
 BUILD_DIR = os.path.join(ROOT, "Build", "Windows")
-OBJ_DIR = os.path.join(BUILD_DIR, "obj") # <-- New Obj folder
+OBJ_DIR = os.path.join(BUILD_DIR, "obj") 
 VULKAN_ROOT = os.path.join(ROOT, "vulkansdk")
 VULKAN_INCLUDE = os.path.join(VULKAN_ROOT, "multiarch", "include")
 VULKAN_LIB = os.path.join(VULKAN_ROOT, "windows", "lib")
 
 os.makedirs(BUILD_DIR, exist_ok=True)
-os.makedirs(OBJ_DIR, exist_ok=True) # Ensure obj folder exists
+os.makedirs(OBJ_DIR, exist_ok=True)
 
 CXX = "g++"
 CXX_FLAGS = [
     "-std=c++17", "-O2", 
     "-I", VULKAN_INCLUDE,
-    "-I", INCLUDE,
-    "-I", os.path.join(SOURCE, "backends"),
+    "-I", INCLUDE,                     # Nuklear headers found here
     "-I", os.path.join(WREN_SRC, "include"),
     "-I", os.path.join(WREN_SRC, "vm")
 ]
 
-CPP_FILES = [
-    os.path.join(SOURCE, "imgui.cpp"),
-    os.path.join(SOURCE, "imgui_draw.cpp"),
-    os.path.join(SOURCE, "imgui_tables.cpp"),
-    os.path.join(SOURCE, "imgui_widgets.cpp"),
-    os.path.join(SOURCE, "backends", "imgui_impl_glfw.cpp"),
-    os.path.join(SOURCE, "backends", "imgui_impl_vulkan.cpp")
-]
+# Removed ImGui files. 
+# Nuklear is a single-header library, so it compiles inside main.cpp/vkrender.cpp
+CPP_FILES = []
 
 C_FILES = [
     os.path.join(WREN_SRC, "vm", f) for f in [
@@ -64,11 +58,11 @@ def log(msg):
         print(msg)
 
 def find_cpp_files():
+    # Finds main.cpp, vkrender.cpp, etc. in source/
     all_cpp = glob.glob(os.path.join(SOURCE, "*.cpp"))
-    return [f for f in all_cpp if "imgui" not in os.path.basename(f)]
+    return all_cpp
 
 def compile_c_file(src):
-    # Save .o to OBJ_DIR
     obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
     cmd = ["gcc", "-std=c99", "-O2", "-c", src, 
            "-I", os.path.join(WREN_SRC, "include"),
@@ -80,7 +74,6 @@ def compile_c_file(src):
     return obj
 
 def compile_cpp_file(src):
-    # Save .o to OBJ_DIR
     obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
     cmd = [CXX] + CXX_FLAGS + ["-c", src, "-o", obj]
     log(f"[C++] {os.path.basename(src)}")
