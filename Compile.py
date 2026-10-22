@@ -13,11 +13,13 @@ INCLUDE = os.path.join(ROOT, "include")
 LIB_DIR = os.path.join(ROOT, "lib")
 WREN_SRC = os.path.join(ROOT, "compiler", "src")
 BUILD_DIR = os.path.join(ROOT, "Build", "Windows")
+OBJ_DIR = os.path.join(BUILD_DIR, "obj") # <-- New Obj folder
 VULKAN_ROOT = os.path.join(ROOT, "vulkansdk")
 VULKAN_INCLUDE = os.path.join(VULKAN_ROOT, "multiarch", "include")
 VULKAN_LIB = os.path.join(VULKAN_ROOT, "windows", "lib")
 
 os.makedirs(BUILD_DIR, exist_ok=True)
+os.makedirs(OBJ_DIR, exist_ok=True) # Ensure obj folder exists
 
 CXX = "g++"
 CXX_FLAGS = [
@@ -66,7 +68,8 @@ def find_cpp_files():
     return [f for f in all_cpp if "imgui" not in os.path.basename(f)]
 
 def compile_c_file(src):
-    obj = os.path.join(BUILD_DIR, os.path.basename(src) + ".o")
+    # Save .o to OBJ_DIR
+    obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
     cmd = ["gcc", "-std=c99", "-O2", "-c", src, 
            "-I", os.path.join(WREN_SRC, "include"),
            "-I", os.path.join(WREN_SRC, "vm"),
@@ -77,7 +80,8 @@ def compile_c_file(src):
     return obj
 
 def compile_cpp_file(src):
-    obj = os.path.join(BUILD_DIR, os.path.basename(src) + ".o")
+    # Save .o to OBJ_DIR
+    obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
     cmd = [CXX] + CXX_FLAGS + ["-c", src, "-o", obj]
     log(f"[C++] {os.path.basename(src)}")
     subprocess.run(cmd, check=True)
@@ -111,7 +115,6 @@ def main():
     link_cmd = [CXX] + all_objects + ["-o", exe] + LIBS
     subprocess.run(link_cmd, check=True)
     
-    # Package assets
     package_fonts()
 
     log("Build Complete. Launching...")

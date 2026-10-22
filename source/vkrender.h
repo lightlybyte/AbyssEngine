@@ -1,44 +1,44 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_vulkan.h"
+#include "glm/glm.hpp"
+#include <cstdint>
+#include <string>
 #include <vector>
+
+struct GLFWwindow;
+struct VkRendererImpl;
+
+struct VkVertex {
+    glm::vec3 pos;
+    glm::vec3 normal;
+    glm::vec2 uv;
+};
 
 class VkRenderer {
 public:
-    bool init(GLFWwindow* window);
-    void draw_frame();
-    void shutdown();
+    VkRenderer();
+    ~VkRenderer();
 
-    VkInstance get_instance() const { return instance; }
+    VkRenderer(const VkRenderer&) = delete;
+    VkRenderer& operator=(const VkRenderer&) = delete;
+
+    // Init now takes the GLFWwindow directly so ImGui can hook into it
+    bool init(GLFWwindow* window, uint32_t width, uint32_t height);
+
+    // These are stubs for now, as the Hub doesn't render 3D yet
+    uint32_t createMesh(const std::vector<VkVertex>& vertices, const std::vector<uint32_t>& indices);
+    uint32_t createTexture(const unsigned char* rgbaPixels, int width, int height);
+    void setDrawItem(uint32_t meshId, uint32_t textureId);
+    void clearDrawItems();
+
+    // This now renders the ImGui frame
+    void drawFrame();
+
+    bool shouldClose() const;
+    void pollEvents();
+    void waitIdle();
+    double timeSeconds() const;
 
 private:
-    GLFWwindow* window = nullptr;
-    VkInstance instance = VK_NULL_HANDLE;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkPhysicalDevice physical_device = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
-    VkQueue graphics_queue = VK_NULL_HANDLE;
-    VkQueue present_queue = VK_NULL_HANDLE;
-    
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    std::vector<VkImage> swapchain_images;
-    std::vector<VkImageView> swapchain_image_views;
-    std::vector<VkFramebuffer> swapchain_framebuffers;
-    
-    VkRenderPass render_pass = VK_NULL_HANDLE;
-    VkCommandPool command_pool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> command_buffers;
-    
-    VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
-    VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
-    VkFence in_flight_fence = VK_NULL_HANDLE;
-    
-    VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
-    
-    // We need the extent for the render pass
-    VkExtent2D swapchain_extent{};
+    VkRendererImpl* impl = nullptr;
 };
