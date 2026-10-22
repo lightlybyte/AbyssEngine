@@ -1,34 +1,54 @@
 #include <iostream>
-#include <vector>
-#include <string>
 #include <stdexcept>
 
 #include "GLFW/glfw3.h"
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_vulkan.h"
+
+// Define Nuklear implementation in main.cpp
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+
+#define NK_IMPLEMENTATION
+#include "nuklear.h"
+
 #include "vkrender.h"
 
 static GLFWwindow* g_window = nullptr;
 static VkRenderer g_renderer;
 
-static void draw_hub_ui() {
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Exit")) glfwSetWindowShouldClose(g_window, true);
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
+// Nuklear context
+static struct nk_context* g_ctx = nullptr;
 
-    ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_Always);
-    
-    ImGui::Begin("Abyss Engine Hub", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-    ImGui::TextColored(ImVec4(0.8f, 0.8f, 1.0f, 1.0f), "Abyss Engine v2027.Q1 (Endeavor)");
-    ImGui::Separator();
-    ImGui::TextDisabled("No recent projects found in C:\\AbyssProjects");
-    ImGui::End();
+static void draw_hub_ui() {
+    // 1. Start Nuklear Frame
+    nk_glfw3_new_frame();
+
+    // 2. Draw the UI
+    if (nk_begin(g_ctx, "Abyss Engine Hub", nk_rect(100, 100, 800, 600),
+        NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
+        NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
+    {
+        nk_layout_row_dynamic(g_ctx, 30, 1);
+        nk_label(g_ctx, "Abyss Engine v2027.Q1 (Endeavor)", NK_TEXT_LEFT);
+        
+        nk_layout_row_dynamic(g_ctx, 25, 1);
+        nk_label(g_ctx, "No recent projects found in C:\\AbyssProjects", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(g_ctx, 40, 3);
+        if (nk_button_label(g_ctx, "New Project")) {
+            std::cout << "New Project clicked" << std::endl;
+        }
+        if (nk_button_label(g_ctx, "Open Project")) {
+            std::cout << "Open Project clicked" << std::endl;
+        }
+        if (nk_button_label(g_ctx, "Quit")) {
+            glfwSetWindowShouldClose(g_window, true);
+        }
+    }
+    nk_end(g_ctx);
 }
 
 int main() {
@@ -46,36 +66,27 @@ int main() {
         g_window = glfwCreateWindow(mode->width, mode->height, "Abyss Engine Hub", nullptr, nullptr);
         if (!g_window) throw std::runtime_error("Failed to create window");
 
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        ImGui::StyleColorsDark();
-
-        // Load Fonts
-        io.Fonts->AddFontFromFileTTF("fonts/Noto_Sans/NotoSans-VariableFont_wdth,wght.ttf", 18.0f);
-        
-        ImGui_ImplGlfw_InitForVulkan(g_window, true);
-
+        // We get the Nuklear context from the renderer after it initializes
         if (!g_renderer.init(g_window, mode->width, mode->height)) {
             throw std::runtime_error("Failed to init renderer");
         }
 
+        // In a real setup, you'd get the context from the renderer or initialize it here.
+        // For this example, we assume g_ctx is accessible or we create a default one.
+        // If VkRenderer::init creates it, you'd need a getter.
+        // For simplicity, we'll init a default context here for the UI logic.
+        g_ctx = nk_glfw3_init(g_window, nullptr, nullptr, 0, nullptr, 0, VK_FORMAT_UNDEFINED, 0, 0, 0); 
+        // NOTE: This is a placeholder. You MUST match the init signature of your specific 
+        // nuklear_glfw_vulkan.h file. It likely requires the device, physical device, etc.
+
         while (!g_renderer.shouldClose()) {
             g_renderer.pollEvents();
 
-            ImGui_ImplGlfw_NewFrame();
-            ImGui_ImplVulkan_NewFrame();
-            ImGui::NewFrame();
-
             draw_hub_ui();
-
-            ImGui::Render();
             g_renderer.drawFrame();
         }
 
         g_renderer.waitIdle();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
         glfwDestroyWindow(g_window);
         glfwTerminate();
         
