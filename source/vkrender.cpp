@@ -1,16 +1,27 @@
-#include <vkrender.h>
+#include "vkrender.h"
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_vulkan.h"
-
 #include <iostream>
 #include <stdexcept>
 #include <array>
 #include <vector>
 #include <chrono>
 #include <algorithm>
+
+// --- NUKLEAR SETUP ---
+// Define these BEFORE including Nuklear
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+
+// This is the implementation. It must only be defined in ONE .cpp file.
+#define NK_IMPLEMENTATION
+#define NK_GLFW_VULKAN_IMPLEMENTATION // If your header uses this flag
+#include "nuklear.h"
+#include "nuklear_glfw_vulkan.h" // Ensure this matches the header name you downloaded
 
 struct VkRendererImpl {
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -41,6 +52,10 @@ struct VkRendererImpl {
     uint32_t currentFrame = 0;
 
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+
+    // Nuklear context
+    struct nk_context* ctx = nullptr;
+    struct nk_glfw* glfw = nullptr; // Nuklear's GLFW/Vulkan adapter state
 
     std::chrono::high_resolution_clock::time_point startTime;
 
@@ -288,18 +303,15 @@ struct VkRendererImpl {
             createCommandBuffers();
             createSyncObjects();
             
-            // Init ImGui Vulkan Backend
-            ImGui_ImplVulkan_InitInfo init_info = {};
-            init_info.Instance = instance;
-            init_info.PhysicalDevice = physicalDevice;
-            init_info.Device = device;
-            init_info.QueueFamily = findQueues(physicalDevice).graphics;
-            init_info.Queue = graphicsQueue;
-            init_info.DescriptorPool = descriptorPool;
-            init_info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
-            init_info.ImageCount = (uint32_t)swapChainImages.size();
-            init_info.RenderPass = renderPass; // Some older ImGui versions need this
-            ImGui_ImplVulkan_Init(&init_info, renderPass);
+            // --- INIT NUKLEAR ---
+            // The exact init signature depends on your nuklear_glfw_vulkan.h version.
+            // This is the standard signature for the moppers/nuklear-glfw-vulkan header.
+            ctx = nk_glfw3_init(window, device, physicalDevice, 
+                                findQueues(physicalDevice).graphics, 
+                                swapChainImageViews.data(), (uint32_t)swapChainImages.size(), 
+                                swapChainImageFormat, 
+                                NK_GLFW3_INSTALL_CALLBACKS,
+                                512 * 1024, 128 * 1024);
 
             startTime = std::chrono::high_resolution_clock::now();
             return true;
@@ -340,9 +352,11 @@ struct VkRendererImpl {
 
         vkCmdBeginRenderPass(cb, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-        // Draw ImGui
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
-
+        // --- RENDER NUKLEAR ---
+        // Nuklear renders directly to the command buffer
+        struct nk_glfw* glfw_impl = nk_glfw3_get_impl(ctx); // May vary by header
+        nk_glfw3_render(NK_ANTI_ALIASING_ON, 512 * 1024, 128 * 1024);
+        
         vkCmdEndRenderPass(cb);
         vkEndCommandBuffer(cb);
 
@@ -383,8 +397,9 @@ struct VkRendererImpl {
 
     ~VkRendererImpl() {
         vkDeviceWaitIdle(device);
-        ImGui_ImplVulkan_Shutdown();
         
+        if (ctx) nk_glfw3_shutdown();
+
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
@@ -413,7 +428,7 @@ void VkRenderer::pollEvents() { impl->pollEvents(); }
 void VkRenderer::waitIdle() { impl->waitIdle(); }
 double VkRenderer::timeSeconds() const { return impl->timeSeconds(); }
 
-// Stubs for the 3D engine (to be re-integrated later)
+// Stubs
 uint32_t VkRenderer::createMesh(const std::vector<VkVertex>& v, const std::vector<uint32_t>& i) { return 0; }
 uint32_t VkRenderer::createTexture(const unsigned char* p, int w, int h) { return 0; }
 void VkRenderer::setDrawItem(uint32_t mesh, uint32_t tex) {}
