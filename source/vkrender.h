@@ -22,22 +22,22 @@ public:
     VkRenderer(const VkRenderer&) = delete;
     VkRenderer& operator=(const VkRenderer&) = delete;
 
-    // Init takes the window so Nuklear/GLFW can hook into it
     bool init(GLFWwindow* window, uint32_t width, uint32_t height);
 
-    // Stubs for future 3D engine
     uint32_t createMesh(const std::vector<VkVertex>& vertices, const std::vector<uint32_t>& indices);
     uint32_t createTexture(const unsigned char* rgbaPixels, int width, int height);
     void setDrawItem(uint32_t meshId, uint32_t textureId);
     void clearDrawItems();
 
-    // Renders the Nuklear frame
     void drawFrame();
+    void drawGameFrame();
 
     bool shouldClose() const;
     void pollEvents();
     void waitIdle();
     double timeSeconds() const;
+
+    struct nk_context* ctx() const;
 
 private:
     VkRendererImpl* impl = nullptr;

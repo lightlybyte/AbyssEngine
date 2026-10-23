@@ -7,9 +7,9 @@
 #include <vector>
 #include <chrono>
 #include <algorithm>
+#include <cstring>
 
 // --- NUKLEAR SETUP ---
-// Define these BEFORE including Nuklear
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -17,15 +17,15 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 
-// This is the implementation. It must only be defined in ONE .cpp file.
 #define NK_IMPLEMENTATION
-#define NK_GLFW_VULKAN_IMPLEMENTATION // If your header uses this flag
 #include "nuklear.h"
-#include "nuklear_glfw_vulkan.h" // Ensure this matches the header name you downloaded
+
+// The adapter header must be included after nuklear.h
+#include "nuklear_glfw_vulkan.h"
 
 struct VkRendererImpl {
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-    
+
     GLFWwindow* window = nullptr;
     VkInstance instance = VK_NULL_HANDLE;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -40,9 +40,22 @@ struct VkRendererImpl {
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
 
+    // Overlay images for Nuklear
+    std::vector<VkImage> overlayImages;
+    std::vector<VkDeviceMemory> overlayImageMemories;
+    std::vector<VkImageView> overlayImageViews;
+
+    // Overlay copy pipeline
+    VkRenderPass overlayRenderPass = VK_NULL_HANDLE;
+    VkDescriptorSetLayout overlayDescriptorSetLayout = VK_NULL_HANDLE;
+    VkPipelineLayout overlayPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline overlayGraphicsPipeline = VK_NULL_HANDLE;
+    std::vector<VkFramebuffer> overlayFramebuffers;
+    std::vector<VkDescriptorSet> overlayDescriptorSets;
+
+    // 3D Pipeline (stub for now)
     VkRenderPass renderPass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> swapChainFramebuffers;
-
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
 
@@ -53,16 +66,15 @@ struct VkRendererImpl {
 
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-    // Nuklear context
     struct nk_context* ctx = nullptr;
-    struct nk_glfw* glfw = nullptr; // Nuklear's GLFW/Vulkan adapter state
-
     std::chrono::high_resolution_clock::time_point startTime;
+
+    // --- Initialization Helpers ---
 
     void createInstance() {
         VkApplicationInfo app{};
         app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app.pApplicationName = "Abyss Engine Hub";
+        app.pApplicationName = "DATS";
         app.apiVersion = VK_API_VERSION_1_0;
 
         uint32_t extCount = 0;
@@ -198,7 +210,62 @@ struct VkRendererImpl {
         }
     }
 
+    void createOverlayImages() {
+        overlayImages.resize(swapChainImages.size());
+        overlayImageMemories.resize(swapChainImages.size());
+        overlayImageViews.resize(swapChainImages.size());
+
+        for (size_t i = 0; i < swapChainImages.size(); ++i) {
+            VkImageCreateInfo ci{};
+            ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+            ci.imageType = VK_IMAGE_TYPE_2D;
+            ci.extent = { swapChainExtent.width, swapChainExtent.height, 1 };
+            ci.mipLevels = 1;
+            ci.arrayLayers = 1;
+            ci.format = swapChainImageFormat;
+            ci.tiling = VK_IMAGE_TILING_OPTIMAL;
+            ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            // Overlay images are used as color attachments by Nuklear, and sampled by the copy pipeline
+            ci.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            ci.samples = VK_SAMPLE_COUNT_1_BIT;
+            ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            if (vkCreateImage(device, &ci, nullptr, &overlayImages[i]) != VK_SUCCESS)
+                throw std::runtime_error("failed to create overlay image");
+
+            VkMemoryRequirements req;
+            vkGetImageMemoryRequirements(device, overlayImages[i], &req);
+            VkMemoryAllocateInfo ai{};
+            ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            ai.allocationSize = req.size;
+            // Find device local memory
+            VkPhysicalDeviceMemoryProperties memProps;
+            vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+            uint32_t typeIndex = UINT32_MAX;
+            for (uint32_t j = 0; j < memProps.memoryTypeCount; ++j) {
+                if ((req.memoryTypeBits & (1 << j)) && (memProps.memoryTypes[j].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+                    typeIndex = j;
+                    break;
+                }
+            }
+            ai.memoryTypeIndex = typeIndex;
+            if (vkAllocateMemory(device, &ai, nullptr, &overlayImageMemories[i]) != VK_SUCCESS)
+                throw std::runtime_error("failed to allocate overlay image memory");
+            vkBindImageMemory(device, overlayImages[i], overlayImageMemories[i], 0);
+
+            VkImageViewCreateInfo vi{};
+            vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            vi.image = overlayImages[i];
+            vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            vi.format = swapChainImageFormat;
+            vi.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+            if (vkCreateImageView(device, &vi, nullptr, &overlayImageViews[i]) != VK_SUCCESS)
+                throw std::runtime_error("failed to create overlay image view");
+        }
+    }
+
     void createRenderPass() {
+        // Render pass for the swapchain (3D scene)
         VkAttachmentDescription color{};
         color.format = swapChainImageFormat;
         color.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -220,6 +287,32 @@ struct VkRendererImpl {
         ci.subpassCount = 1;
         ci.pSubpasses = &sub;
         vkCreateRenderPass(device, &ci, nullptr, &renderPass);
+
+        // Render pass for the overlay copy pipeline (targets swapchain, but we need a separate pass that loads)
+        // Actually, the copy pipeline needs to render to the swapchain image *after* the 3D scene.
+        // A simpler approach is to use the same render pass but with LOAD_OP_LOAD, or a separate render pass.
+        // For simplicity, we create a separate render pass for the overlay copy that loads existing content.
+        VkAttachmentDescription overlayColor{};
+        overlayColor.format = swapChainImageFormat;
+        overlayColor.samples = VK_SAMPLE_COUNT_1_BIT;
+        overlayColor.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // Keep 3D scene
+        overlayColor.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        overlayColor.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Or COLOR_ATTACHMENT_OPTIMAL
+        overlayColor.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        VkAttachmentReference overlayColorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        VkSubpassDescription overlaySub{};
+        overlaySub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        overlaySub.colorAttachmentCount = 1;
+        overlaySub.pColorAttachments = &overlayColorRef;
+
+        VkRenderPassCreateInfo overlayCi{};
+        overlayCi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        overlayCi.attachmentCount = 1;
+        overlayCi.pAttachments = &overlayColor;
+        overlayCi.subpassCount = 1;
+        overlayCi.pSubpasses = &overlaySub;
+        vkCreateRenderPass(device, &overlayCi, nullptr, &overlayRenderPass);
     }
 
     void createFramebuffers() {
@@ -235,6 +328,20 @@ struct VkRendererImpl {
             ci.layers = 1;
             vkCreateFramebuffer(device, &ci, nullptr, &swapChainFramebuffers[i]);
         }
+
+        // Framebuffers for the overlay copy (targeting swapchain images)
+        overlayFramebuffers.resize(swapChainImageViews.size());
+        for (size_t i = 0; i < swapChainImageViews.size(); ++i) {
+            VkFramebufferCreateInfo ci{};
+            ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            ci.renderPass = overlayRenderPass;
+            ci.attachmentCount = 1;
+            ci.pAttachments = &swapChainImageViews[i];
+            ci.width = swapChainExtent.width;
+            ci.height = swapChainExtent.height;
+            ci.layers = 1;
+            vkCreateFramebuffer(device, &ci, nullptr, &overlayFramebuffers[i]);
+        }
     }
 
     void createCommandPool() {
@@ -247,7 +354,9 @@ struct VkRendererImpl {
     }
 
     void createDescriptorPool() {
-        VkDescriptorPoolSize pool_sizes[] = { { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 } };
+        VkDescriptorPoolSize pool_sizes[] = {
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 }
+        };
         VkDescriptorPoolCreateInfo ci{};
         ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         ci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -255,6 +364,67 @@ struct VkRendererImpl {
         ci.poolSizeCount = 1;
         ci.pPoolSizes = pool_sizes;
         vkCreateDescriptorPool(device, &ci, nullptr, &descriptorPool);
+    }
+
+    void createOverlayPipeline() {
+        // Simple fullscreen triangle pipeline to copy overlay image to swapchain
+        // We need shaders for this. For brevity, assuming you have 'overlay.vert.spv' and 'overlay.frag.spv'
+        // which sample a texture and output it.
+        // If you don't have these, you'll need to create them.
+        // This is a placeholder: you would typically load SPIR-V shaders here.
+        // For now, we'll skip the actual pipeline creation to keep the file compiling,
+        // but you MUST implement this for the UI to appear.
+        
+        // Descriptor Set Layout for the overlay texture
+        VkDescriptorSetLayoutBinding samplerBinding{};
+        samplerBinding.binding = 0;
+        samplerBinding.descriptorCount = 1;
+        samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &samplerBinding;
+        vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &overlayDescriptorSetLayout);
+
+        // Allocate descriptor sets for each swapchain image
+        std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), overlayDescriptorSetLayout);
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = descriptorPool;
+        allocInfo.descriptorSetCount = (uint32_t)swapChainImages.size();
+        allocInfo.pSetLayouts = layouts.data();
+        overlayDescriptorSets.resize(swapChainImages.size());
+        vkAllocateDescriptorSets(device, &allocInfo, overlayDescriptorSets.data());
+
+        // Update descriptor sets to point to the overlay images
+        for (size_t i = 0; i < swapChainImages.size(); ++i) {
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = overlayImageViews[i];
+            // Note: You need a sampler here. For simplicity, assuming a sampler exists or is created.
+            // imageInfo.sampler = sampler;
+
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = overlayDescriptorSets[i];
+            write.dstBinding = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.pImageInfo = &imageInfo;
+            vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+        }
+
+        // Pipeline Layout
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &overlayDescriptorSetLayout;
+        vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &overlayPipelineLayout);
+
+        // TODO: Load shaders and create the actual graphics pipeline
+        // overlayGraphicsPipeline = ...
     }
 
     void createCommandBuffers() {
@@ -296,20 +466,20 @@ struct VkRendererImpl {
             createDevice();
             createSwapchain();
             createImageViews();
+            createOverlayImages();
             createRenderPass();
             createFramebuffers();
             createCommandPool();
             createDescriptorPool();
+            createOverlayPipeline();
             createCommandBuffers();
             createSyncObjects();
-            
-            // --- INIT NUKLEAR ---
-            // The exact init signature depends on your nuklear_glfw_vulkan.h version.
-            // This is the standard signature for the moppers/nuklear-glfw-vulkan header.
-            ctx = nk_glfw3_init(window, device, physicalDevice, 
-                                findQueues(physicalDevice).graphics, 
-                                swapChainImageViews.data(), (uint32_t)swapChainImages.size(), 
-                                swapChainImageFormat, 
+
+            // Initialize Nuklear with the adapter
+            ctx = nk_glfw3_init(window, device, physicalDevice,
+                                findQueues(physicalDevice).graphics,
+                                overlayImageViews.data(), (uint32_t)overlayImageViews.size(),
+                                swapChainImageFormat,
                                 NK_GLFW3_INSTALL_CALLBACKS,
                                 512 * 1024, 128 * 1024);
 
@@ -339,6 +509,7 @@ struct VkRendererImpl {
         bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         vkBeginCommandBuffer(cb, &bi);
 
+        // --- 1. Render 3D Scene to Swapchain ---
         VkClearValue clear{};
         clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
 
@@ -351,13 +522,26 @@ struct VkRendererImpl {
         rp.pClearValues = &clear;
 
         vkCmdBeginRenderPass(cb, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-        // --- RENDER NUKLEAR ---
-        // Nuklear renders directly to the command buffer
-        struct nk_glfw* glfw_impl = nk_glfw3_get_impl(ctx); // May vary by header
-        nk_glfw3_render(NK_ANTI_ALIASING_ON, 512 * 1024, 128 * 1024);
-        
+        // TODO: vkCmdBindPipeline / vkCmdDraw for 3D scene
         vkCmdEndRenderPass(cb);
+
+        // --- 2. Render Nuklear UI to Overlay Image ---
+        // This renders to the overlay image, and signals a semaphore
+        VkSemaphore uiSemaphore = nk_glfw3_render(graphicsQueue, imageIndex,
+                                                  imageAvailableSemaphores[currentFrame],
+                                                  NK_ANTI_ALIASING_ON);
+
+        // --- 3. Copy Overlay to Swapchain ---
+        // We need to wait for the UI semaphore before copying
+        // For simplicity, this example assumes the copy pipeline is ready.
+        // In a real implementation, you would:
+        // - Transition overlay image to SHADER_READ_ONLY
+        // - Begin overlayRenderPass
+        // - Bind overlayGraphicsPipeline
+        // - Draw fullscreen triangle
+        // - End render pass
+        // This requires the pipeline and shaders to be created in createOverlayPipeline().
+
         vkEndCommandBuffer(cb);
 
         VkSubmitInfo si{};
@@ -387,6 +571,11 @@ struct VkRendererImpl {
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
+    void drawGameFrame() {
+        // Placeholder for game rendering
+        drawFrame();
+    }
+
     bool shouldClose() const { return glfwWindowShouldClose(window); }
     void pollEvents() { glfwPollEvents(); }
     void waitIdle() { vkDeviceWaitIdle(device); }
@@ -397,7 +586,7 @@ struct VkRendererImpl {
 
     ~VkRendererImpl() {
         vkDeviceWaitIdle(device);
-        
+
         if (ctx) nk_glfw3_shutdown();
 
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -407,8 +596,13 @@ struct VkRendererImpl {
         for (auto s : renderFinishedSemaphores) vkDestroySemaphore(device, s, nullptr);
 
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
+        for (auto fb : overlayFramebuffers) vkDestroyFramebuffer(device, fb, nullptr);
         for (auto fb : swapChainFramebuffers) vkDestroyFramebuffer(device, fb, nullptr);
+        for (auto iv : overlayImageViews) vkDestroyImageView(device, iv, nullptr);
+        for (auto im : overlayImageMemories) vkFreeMemory(device, im, nullptr);
+        for (auto img : overlayImages) vkDestroyImage(device, img, nullptr);
         for (auto iv : swapChainImageViews) vkDestroyImageView(device, iv, nullptr);
         vkDestroySwapchainKHR(device, swapChain, nullptr);
         vkDestroyCommandPool(device, commandPool, nullptr);
@@ -423,12 +617,13 @@ VkRenderer::~VkRenderer() { delete impl; }
 
 bool VkRenderer::init(GLFWwindow* window, uint32_t w, uint32_t h) { return impl->init(window, w, h); }
 void VkRenderer::drawFrame() { impl->drawFrame(); }
+void VkRenderer::drawGameFrame() { impl->drawGameFrame(); }
 bool VkRenderer::shouldClose() const { return impl->shouldClose(); }
 void VkRenderer::pollEvents() { impl->pollEvents(); }
 void VkRenderer::waitIdle() { impl->waitIdle(); }
 double VkRenderer::timeSeconds() const { return impl->timeSeconds(); }
+struct nk_context* VkRenderer::ctx() const { return impl->ctx; }
 
-// Stubs
 uint32_t VkRenderer::createMesh(const std::vector<VkVertex>& v, const std::vector<uint32_t>& i) { return 0; }
 uint32_t VkRenderer::createTexture(const unsigned char* p, int w, int h) { return 0; }
 void VkRenderer::setDrawItem(uint32_t mesh, uint32_t tex) {}

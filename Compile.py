@@ -1,134 +1,279 @@
+#!/usr/bin/env python3
+"""
+Abyss Engine / D.A.T.S Build System
+Root-level. Incremental, multithreaded.
+"""
+
 import os
 import sys
+import shutil
 import subprocess
 import glob
-import shutil
-import threading
-from concurrent.futures import ThreadPoolExecutor
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
-# Paths
-ROOT = os.path.dirname(os.path.abspath(__file__))
-SOURCE = os.path.join(ROOT, "source")
-INCLUDE = os.path.join(ROOT, "include") # Nuklear is here now
-LIB_DIR = os.path.join(ROOT, "lib")
-WREN_SRC = os.path.join(ROOT, "compiler", "src")
-BUILD_DIR = os.path.join(ROOT, "Build", "Windows")
-OBJ_DIR = os.path.join(BUILD_DIR, "obj") 
-VULKAN_ROOT = os.path.join(ROOT, "vulkansdk")
-VULKAN_INCLUDE = os.path.join(VULKAN_ROOT, "multiarch", "include")
-VULKAN_LIB = os.path.join(VULKAN_ROOT, "windows", "lib")
+# ---------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------
 
-os.makedirs(BUILD_DIR, exist_ok=True)
-os.makedirs(OBJ_DIR, exist_ok=True)
+ROOT        = Path(__file__).parent.resolve()
+SOURCE      = ROOT / "source"
+INCLUDE     = ROOT / "include"
+LIB_DIR     = ROOT / "lib"
+WREN_SRC    = ROOT / "compiler" / "src"
+BUILD_ROOT  = ROOT / "Build"
+SHADERS     = ROOT / "Shaders"
+VULKAN_ROOT = ROOT / "vulkansdk"
+VULKAN_INC  = VULKAN_ROOT / "multiarch" / "include"
+VULKAN_LIB  = VULKAN_ROOT / "windows" / "lib"
 
-CXX = "g++"
-CXX_FLAGS = [
-    "-std=c++17", "-O2", 
-    "-I", VULKAN_INCLUDE,
-    "-I", INCLUDE,                     # Nuklear headers found here
-    "-I", os.path.join(WREN_SRC, "include"),
-    "-I", os.path.join(WREN_SRC, "vm")
+# ---------------------------------------------------------------
+# C++ Config
+# ---------------------------------------------------------------
+
+CXX         = "g++"
+CXX_FLAGS   = [
+    "-std=c++17",
+    "-O2",
+    "-I", str(INCLUDE),
+    "-I", str(VULKAN_INC),
+    "-I", str(WREN_SRC / "include"),
+    "-I", str(WREN_SRC / "vm"),
+    "-I", str(ROOT / "openxr" / "include"),
 ]
 
-# Removed ImGui files. 
-# Nuklear is a single-header library, so it compiles inside main.cpp/vkrender.cpp
 CPP_FILES = []
 
 C_FILES = [
-    os.path.join(WREN_SRC, "vm", f) for f in [
-        "wren_compiler.c", "wren_core.c", "wren_debug.c", 
+    str(WREN_SRC / "vm" / f) for f in [
+        "wren_compiler.c", "wren_core.c", "wren_debug.c",
         "wren_primitive.c", "wren_utils.c", "wren_value.c", "wren_vm.c"
     ]
 ] + [
-    os.path.join(WREN_SRC, "optional", "wren_opt_meta.c"),
-    os.path.join(WREN_SRC, "optional", "wren_opt_random.c")
+    str(WREN_SRC / "optional" / "wren_opt_meta.c"),
+    str(WREN_SRC / "optional" / "wren_opt_random.c"),
 ]
 
-LIBS = [
-    os.path.join(VULKAN_LIB, "vulkan-1.lib"),
-    "-L", LIB_DIR,
+# Engine sources (explicit list to avoid globbing the Wren compiler)
+ENGINE_CPP = [
+    str(SOURCE / "vkrender.cpp"),
+    str(SOURCE / "engine.cpp"),
+    str(SOURCE / "main.cpp"),
+]
+
+LIBS_WINDOWS = [
+    str(VULKAN_LIB / "vulkan-1.lib"),
+    "-L", str(LIB_DIR),
     "-lglfw3",
-    "-lgdi32", "-luser32", "-lshell32", "-lole32"
+    "-lgdi32", "-luser32", "-lshell32", "-lole32",
 ]
 
-print_lock = threading.Lock()
+LIBS_LINUX = [
+    "-lvulkan",
+    "-lglfw",
+    "-lpthread", "-ldl", "-lm", "-lX11",
+]
+
+# ---------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------
 
 def log(msg):
-    with print_lock:
-        print(msg)
+    print(f"[Compile] {msg}")
 
-def find_cpp_files():
-    # Finds main.cpp, vkrender.cpp, etc. in source/
-    all_cpp = glob.glob(os.path.join(SOURCE, "*.cpp"))
-    return all_cpp
+def run(cmd, cwd=None):
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(result.stdout)
+        print(result.stderr)
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}")
+    return result
 
-def compile_c_file(src):
-    obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
-    cmd = ["gcc", "-std=c99", "-O2", "-c", src, 
-           "-I", os.path.join(WREN_SRC, "include"),
-           "-I", os.path.join(WREN_SRC, "vm"),
-           "-I", os.path.join(WREN_SRC, "optional"),
-           "-o", obj]
-    log(f"[C] {os.path.basename(src)}")
-    subprocess.run(cmd, check=True)
-    return obj
+def get_libs(platform):
+    if platform.lower() == "linux":
+        return LIBS_LINUX
+    return LIBS_WINDOWS
 
-def compile_cpp_file(src):
-    obj = os.path.join(OBJ_DIR, os.path.basename(src) + ".o")
-    cmd = [CXX] + CXX_FLAGS + ["-c", src, "-o", obj]
-    log(f"[C++] {os.path.basename(src)}")
-    subprocess.run(cmd, check=True)
-    return obj
+def get_exe_name(platform):
+    return "DATS.exe" if platform.lower() == "windows" else "DATS"
 
-def package_fonts():
-    log("Packaging fonts into Build directory...")
-    src_fonts = os.path.join(ROOT, "fonts")
-    dst_fonts = os.path.join(BUILD_DIR, "fonts")
-    
-    if os.path.exists(dst_fonts):
-        shutil.rmtree(dst_fonts)
-        
-    shutil.copytree(src_fonts, dst_fonts)
-    log(f"[PACKAGE] Copied fonts/ to {dst_fonts}")
+def get_platform_dir(platform):
+    return BUILD_ROOT / platform.capitalize()
+
+# ---------------------------------------------------------------
+# Shaders
+# ---------------------------------------------------------------
+
+def build_shaders(build_dir):
+    log("Building shaders...")
+    out_dir = build_dir / "Shaders"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if not SHADERS.exists():
+        log("  No Shaders/ folder, skipping.")
+        return
+
+    sources = []
+    for ext in ("*.vert", "*.frag"):
+        sources += glob.glob(str(SHADERS / ext))
+
+    if not sources:
+        log("  No shaders found.")
+        return
+
+    glslang = VULKAN_ROOT / "windows" / "bin" / "glslangValidator.exe"
+    if not glslang.exists():
+        log("  glslangValidator not found, skipping shaders.")
+        return
+
+    for f in sources:
+        src = Path(f)
+        out = out_dir / (src.name + ".spv")
+        run([str(glslang), "-V", str(src), "-o", str(out)])
+        log(f"  {src.name} -> {out.name}")
+
+# ---------------------------------------------------------------
+# Compile
+# ---------------------------------------------------------------
+
+def compile_one(src, obj, platform, extra_flags):
+    cmd = [CXX] + CXX_FLAGS + extra_flags
+    cmd += ["-c", str(src), "-o", str(obj)]
+    run(cmd)
+
+def build(platform, full_wipe):
+    build_dir = get_platform_dir(platform)
+    obj_dir   = build_dir / "obj"
+
+    if full_wipe and build_dir.exists():
+        log(f"Wiping {build_dir}...")
+        shutil.rmtree(build_dir)
+
+    build_dir.mkdir(parents=True, exist_ok=True)
+    obj_dir.mkdir(parents=True, exist_ok=True)
+
+    # Shaders
+    build_shaders(build_dir)
+
+    # Compile C files
+    log(f"Compiling {len(C_FILES)} C files...")
+    c_objs = []
+    for src in C_FILES:
+        srcp = Path(src)
+        obj = obj_dir / (srcp.name + ".o")
+        if not full_wipe and obj.exists() and obj.stat().st_mtime >= srcp.stat().st_mtime:
+            c_objs.append(obj)
+            continue
+        cmd = ["gcc", "-std=c99", "-O2", "-c", str(srcp),
+               "-I", str(WREN_SRC / "include"),
+               "-I", str(WREN_SRC / "vm"),
+               "-I", str(WREN_SRC / "optional"),
+               "-o", str(obj)]
+        run(cmd)
+        log(f"  {srcp.name}")
+        c_objs.append(obj)
+
+    # Compile C++ files
+    cpp_files = ENGINE_CPP + CPP_FILES
+    log(f"Compiling {len(cpp_files)} C++ files...")
+    cpp_objs = []
+    for src in cpp_files:
+        srcp = Path(src)
+        if not srcp.exists():
+            log(f"  MISSING: {src}")
+            continue
+        obj = obj_dir / (srcp.name + ".o")
+        if not full_wipe and obj.exists() and obj.stat().st_mtime >= srcp.stat().st_mtime:
+            cpp_objs.append(obj)
+            continue
+        cmd = [CXX] + CXX_FLAGS + ["-c", str(srcp), "-o", str(obj)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            log(f"  FAIL: {srcp.name}")
+            print(result.stderr)
+            raise RuntimeError(f"Failed to compile {srcp.name}")
+        log(f"  OK: {srcp.name}")
+        cpp_objs.append(obj)
+
+    # Link
+    exe_name = get_exe_name(platform)
+    out_exe  = build_dir / exe_name
+    log(f"Linking {exe_name}...")
+
+    all_objs = [str(o) for o in c_objs + cpp_objs]
+    link_cmd = [CXX] + all_objs + ["-o", str(out_exe)] + get_libs(platform)
+    result = subprocess.run(link_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        log("LINKER ERROR:")
+        print(result.stderr)
+        raise RuntimeError("Failed to link executable")
+
+    log(f"Build OK: {out_exe}")
+    return out_exe
+
+# ---------------------------------------------------------------
+# TUI
+# ---------------------------------------------------------------
+
+REPL = """
+=================================
+AbyssEngine/D.A.T.S BUILD SYSTEM
+=================================
+
+[ 1 ] Build (Full Wipe and Rebuild)
+[ 2 ] Clear Build Directory
+[ 3 ] Build (Incremental Build)
+[ 4 ] Configuration
+[ 5 ] Exit
+
+"""
 
 def main():
-    log("Abyss Engine Builder")
-    
-    cpp_files = find_cpp_files() + CPP_FILES
-    
-    with ThreadPoolExecutor() as pool:
-        c_objects = list(pool.map(compile_c_file, C_FILES))
-        cpp_objects = list(pool.map(compile_cpp_file, cpp_files))
+    while True:
+        print(REPL)
+        choice = input(">>> ").strip()
+        print()
 
-    all_objects = c_objects + cpp_objects
+        if choice == "5":
+            print("Goodbye.")
+            break
 
-    exe = os.path.join(BUILD_DIR, "AbyssEngine.exe")
-    
-    log(f"Linking {exe}...")
-    link_cmd = [CXX] + all_objects + ["-o", exe] + LIBS
-    subprocess.run(link_cmd, check=True)
-    
-    package_fonts()
+        if choice == "1":
+            platform = input("What is your Build Choice (Linux, Windows): ").strip()
+            try:
+                exe = build(platform, full_wipe=True)
+                print(f"\nLaunching {exe}...")
+                subprocess.run([str(exe)], cwd=str(exe.parent))
+            except Exception as e:
+                print(f"\nBUILD FAILED: {e}")
+        elif choice == "2":
+            if BUILD_ROOT.exists():
+                shutil.rmtree(BUILD_ROOT)
+                print("Build directory cleared.")
+            else:
+                print("Build directory does not exist.")
+        elif choice == "3":
+            platform = input("What is your Build Choice (Linux, Windows): ").strip()
+            try:
+                exe = build(platform, full_wipe=False)
+                print(f"\nLaunching {exe}...")
+                subprocess.run([str(exe)], cwd=str(exe.parent))
+            except Exception as e:
+                print(f"\nBUILD FAILED: {e}")
+        elif choice == "4":
+            print("Configuration mode - not implemented.")
+        else:
+            print("Invalid choice, please try again.")
 
-    log("Build Complete. Launching...")
-
-    try:
-        process = subprocess.Popen(
-            [exe], 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT, 
-            text=True,
-            bufsize=1
-        )
-        
-        for line in process.stdout:
-            log(f"[APP] {line.strip()}")
-            
-        process.wait()
-        log(f"[APP] Exited with code {process.returncode}")
-
-    except Exception as e:
-        log(f"Failed to run executable: {e}")
+        print()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\nBUILD FAILED: {e}")
+        sys.exit(1)
