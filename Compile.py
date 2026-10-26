@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Abyss Engine / D.A.T.S Build System
+Abyss Engine / D.A.T.S build System
 Root-level. Incremental, multithreaded.
 """
 
@@ -22,8 +22,8 @@ SOURCE      = ROOT / "source"
 INCLUDE     = ROOT / "include"
 LIB_DIR     = ROOT / "lib"
 WREN_SRC    = ROOT / "compiler" / "src"
-BUILD_ROOT  = ROOT / "Build"
-SHADERS     = ROOT / "Shaders"
+build_ROOT  = ROOT / "build"
+SHADERS     = ROOT / "Shaders"  # Lowercase 's'
 VULKAN_ROOT = ROOT / "vulkansdk"
 VULKAN_INC  = VULKAN_ROOT / "multiarch" / "include"
 VULKAN_LIB  = VULKAN_ROOT / "windows" / "lib"
@@ -55,7 +55,7 @@ C_FILES = [
     str(WREN_SRC / "optional" / "wren_opt_random.c"),
 ]
 
-# Engine sources (explicit list to avoid globbing the Wren compiler)
+# Engine sources
 ENGINE_CPP = [
     str(SOURCE / "vkrender.cpp"),
     str(SOURCE / "engine.cpp"),
@@ -99,14 +99,14 @@ def get_exe_name(platform):
     return "DATS.exe" if platform.lower() == "windows" else "DATS"
 
 def get_platform_dir(platform):
-    return BUILD_ROOT / platform.capitalize()
+    return build_ROOT / platform.capitalize()
 
 # ---------------------------------------------------------------
-# Shaders
+# Shaders (Using glslc)
 # ---------------------------------------------------------------
 
 def build_shaders(build_dir):
-    log("Building shaders...")
+    log("building shaders with glslc...")
     out_dir = build_dir / "Shaders"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -122,15 +122,22 @@ def build_shaders(build_dir):
         log("  No shaders found.")
         return
 
-    glslang = VULKAN_ROOT / "windows" / "bin" / "glslangValidator.exe"
-    if not glslang.exists():
-        log("  glslangValidator not found, skipping shaders.")
+    # Point to glslc.exe instead of glslangValidator.exe
+    glslc = VULKAN_ROOT / "windows" / "bin" / "glslc.exe"
+    if not glslc.exists():
+        log("  glslc.exe not found, skipping shaders.")
         return
 
     for f in sources:
         src = Path(f)
         out = out_dir / (src.name + ".spv")
-        run([str(glslang), "-V", str(src), "-o", str(out)])
+        
+        # glslc uses different arguments than glslangValidator
+        # -fshader-stage is optional if extension is .vert/.frag, but we'll be explicit
+        stage = "vert" if src.suffix == ".vert" else "frag"
+        
+        cmd = [str(glslc), f"-fshader-stage={stage}", str(src), "-o", str(out)]
+        run(cmd)
         log(f"  {src.name} -> {out.name}")
 
 # ---------------------------------------------------------------
@@ -209,7 +216,7 @@ def build(platform, full_wipe):
         print(result.stderr)
         raise RuntimeError("Failed to link executable")
 
-    log(f"Build OK: {out_exe}")
+    log(f"build OK: {out_exe}")
     return out_exe
 
 # ---------------------------------------------------------------
@@ -218,11 +225,11 @@ def build(platform, full_wipe):
 
 REPL = """
 =================================
-AbyssEngine/D.A.T.S BUILD SYSTEM
+AbyssEngine/D.A.T.S build SYSTEM
 =================================
 
 [ 1 ] Build (Full Wipe and Rebuild)
-[ 2 ] Clear Build Directory
+[ 2 ] Clear build Directory
 [ 3 ] Build (Incremental Build)
 [ 4 ] Configuration
 [ 5 ] Exit
@@ -240,27 +247,27 @@ def main():
             break
 
         if choice == "1":
-            platform = input("What is your Build Choice (Linux, Windows): ").strip()
+            platform = input("What is your build Choice (Linux, Windows): ").strip()
             try:
                 exe = build(platform, full_wipe=True)
                 print(f"\nLaunching {exe}...")
                 subprocess.run([str(exe)], cwd=str(exe.parent))
             except Exception as e:
-                print(f"\nBUILD FAILED: {e}")
+                print(f"\nbuild FAILED: {e}")
         elif choice == "2":
-            if BUILD_ROOT.exists():
-                shutil.rmtree(BUILD_ROOT)
-                print("Build directory cleared.")
+            if build_ROOT.exists():
+                shutil.rmtree(build_ROOT)
+                print("build directory cleared.")
             else:
-                print("Build directory does not exist.")
+                print("build directory does not exist.")
         elif choice == "3":
-            platform = input("What is your Build Choice (Linux, Windows): ").strip()
+            platform = input("What is your build Choice (Linux, Windows): ").strip()
             try:
                 exe = build(platform, full_wipe=False)
                 print(f"\nLaunching {exe}...")
                 subprocess.run([str(exe)], cwd=str(exe.parent))
             except Exception as e:
-                print(f"\nBUILD FAILED: {e}")
+                print(f"\nbuild FAILED: {e}")
         elif choice == "4":
             print("Configuration mode - not implemented.")
         else:
@@ -275,5 +282,5 @@ if __name__ == "__main__":
         print("\nInterrupted.")
         sys.exit(1)
     except Exception as e:
-        print(f"\nBUILD FAILED: {e}")
+        print(f"\nbuild FAILED: {e}")
         sys.exit(1)

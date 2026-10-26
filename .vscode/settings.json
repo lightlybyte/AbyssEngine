@@ -1,3 +1,15 @@
 {
-    "cmake.sourceDirectory": "C:/AbyssEngine/vulkansdk/Include/glm"
+    "cmake.sourceDirectory": "C:/AbyssEngine/vulkansdk/Include/glm",
+    "cSpell.words": [
+        "DATS",
+        "fams",
+        "fshader",
+        "GLFW",
+        "glslang",
+        "glslc",
+        "lglfw",
+        "Nuklear",
+        "srcp",
+        "Swapchain"
+    ]
 }

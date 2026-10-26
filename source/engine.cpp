@@ -38,7 +38,6 @@ void RenderGame(VkRenderer& renderer) {
 }
 
 void RenderMenu(VkRenderer& renderer, struct nk_context* ctx) {
-    nk_glfw3_new_frame();
 
     // Full-screen military menu
     struct nk_rect full = nk_rect(0, 0, 
