@@ -1,0 +1,110 @@
+# ==========================================
+# DATS / Abyss Engine .gitignore
+# ==========================================
+
+# ------------------------------------------
+# Build Output & Binaries
+# ------------------------------------------
+/build/
+/builds/
+/Build/
+/Builds/
+*.exe
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.map
+
+# ------------------------------------------
+# Shaders (Compiled Output)
+# ------------------------------------------
+*.spv
+*.spirv
+/Shaders/build/
+
+# ------------------------------------------
+# Compiler / Build System Cache
+# ------------------------------------------
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.make
+compile_commands.json
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# ------------------------------------------
+# IDE & Editor Files
+# ------------------------------------------
+.vs/
+.vscode/
+.idea/
+*.code-workspace
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.iml
+*.suo
+*.user
+*.pro.user
+*.pro.user.*
+
+# ------------------------------------------
+# Runtime & Generated Data
+# ------------------------------------------
+*.log
+logs/
+imgui.ini
+uLog.txt
+Loggy.log
+*.dmp
+*.tmp
+*.temp
+config.toml
+
+# ------------------------------------------
+# Custom Game/Engine Directories (Local Only)
+# ------------------------------------------
+/Mods/
+/Modpacks/
+/Saves/
+/Cache/
+/.dats/
+Sanity.bin
+
+# ------------------------------------------
+# OS Junk
+# ------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ------------------------------------------
+# Secrets & Environment
+# ------------------------------------------
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.json
+.env
+.env.local
