@@ -4,19 +4,18 @@
 ![C](https://img.shields.io/badge/C-11-lightgrey.svg)
 ![Assembly](https://img.shields.io/badge/Assembly-x86--64-red.svg)
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.3-orange.svg)
-![Unity](https://img.shields.io/badge/Unity-Burst%20%2F%20DOTS-black.svg)
+![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Lumoinance-black.svg)
 ![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
 ![Budget](https://img.shields.io/badge/Budget-%241-brightgreen.svg)
 
 DATS is a tactical military simulation powered by **Abyss Engine**. 
 
-The client is entirely hand-coded, utilizing a pure C/C++ architecture with Vulkan for rendering and Unity/Burst for specific high-performance subsystems. The server is written from scratch in pure C and x86-64 Assembly, operating at 120Hz to 240Hz.
-
+The client is entirely hand-coded, utilizing a pure C/C++ architecture with Vulkan for rendering and AbyssEngine for specific high-performance subsystems. The server is written from scratch in pure C and x86-64 Assembly, operating at 120Hz to 24
 ## Technical Architecture
 
 ### Abyss Engine
 Abyss Engine is a custom, purpose-built game engine designed for extreme efficiency and low-end hardware compatibility.
-- **Client:** Hand-coded C/C++ with Vulkan rendering. Utilizes Unity/Burst for data-oriented systems where appropriate.
+- **Client:** Hand-coded C/C++ with Vulkan rendering. Utilizes AbyssEngine for data-oriented systems where appropriate.
 - **Server:** Pure C and Assembly. No garbage collection. Cycle-level determinism.
 - **Netcode:** Authoritative 120Hz to 240Hz tick rate. Custom UDP protocol with packet obfuscation.
 - **Physics:** Unified solver for vehicles and biological entities. Simulates structural integrity, ballistics, and fluid dynamics.
