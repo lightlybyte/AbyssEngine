@@ -1,6 +1,5 @@
 #include "vkrender.h"
 
-// MUST BE DEFINED BEFORE GLFW
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -25,7 +24,6 @@
 #define NK_IMPLEMENTATION
 #include "nuklear.h"
 
-// Generate the implementation for the Vulkan/GLFW adapter
 #define NK_GLFW_VULKAN_IMPLEMENTATION
 #include "nuklear_glfw_vulkan.h"
 
@@ -46,7 +44,6 @@ struct VkRendererImpl {
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
 
-    // Overlay images for Nuklear
     std::vector<VkImage> overlayImages;
     std::vector<VkDeviceMemory> overlayImageMemories;
     std::vector<VkImageView> overlayImageViews;
@@ -371,7 +368,6 @@ struct VkRendererImpl {
     }
 
     void createOverlayPipeline() {
-        // 1. Sampler
         VkSamplerCreateInfo sci{};
         sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         sci.magFilter = VK_FILTER_LINEAR;
@@ -380,7 +376,6 @@ struct VkRendererImpl {
         sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         vkCreateSampler(device, &sci, nullptr, &overlaySampler);
 
-        // 2. Descriptor Set Layout
         VkDescriptorSetLayoutBinding binding{};
         binding.binding = 0;
         binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -393,7 +388,6 @@ struct VkRendererImpl {
         dslci.pBindings = &binding;
         vkCreateDescriptorSetLayout(device, &dslci, nullptr, &overlayDescriptorSetLayout);
 
-        // 3. Allocate and Write Descriptor Sets
         std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), overlayDescriptorSetLayout);
         VkDescriptorSetAllocateInfo dsai{};
         dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -415,14 +409,12 @@ struct VkRendererImpl {
             vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
         }
 
-        // 4. Pipeline Layout
         VkPipelineLayoutCreateInfo plci{};
         plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         plci.setLayoutCount = 1;
         plci.pSetLayouts = &overlayDescriptorSetLayout;
         vkCreatePipelineLayout(device, &plci, nullptr, &overlayPipelineLayout);
 
-        // 5. Graphics Pipeline
         VkShaderModule vert = loadShader("Shaders/overlay.vert.spv");
         VkShaderModule frag = loadShader("Shaders/overlay.frag.spv");
 
@@ -443,14 +435,24 @@ struct VkRendererImpl {
         ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-        VkViewport vp{0, 0, (float)swapChainExtent.width, (float)swapChainExtent.height, 0.0f, 1.0f};
-        VkRect2D sc{{0, 0}, swapChainExtent};
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)swapChainExtent.width;
+        viewport.height = (float)swapChainExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        VkRect2D scissor{};
+        scissor.offset = {0, 0};
+        scissor.extent = swapChainExtent;
+
         VkPipelineViewportStateCreateInfo vs{};
         vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         vs.viewportCount = 1;
-        vs.pViewports = &vp;
+        vs.pViewports = &viewport;
         vs.scissorCount = 1;
-        vs.pScissors = &sc;
+        vs.pScissors = &scissor;
 
         VkPipelineRasterizationStateCreateInfo rs{};
         rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -546,12 +548,10 @@ struct VkRendererImpl {
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
-        // 1. Render Nuklear to the overlay image
         VkSemaphore uiSemaphore = nk_glfw3_render(graphicsQueue, imageIndex,
                                                   imageAvailableSemaphores[currentFrame],
                                                   NK_ANTI_ALIASING_ON);
 
-        // 2. Record command buffer to copy overlay -> swapchain
         VkCommandBuffer cb = commandBuffers[currentFrame];
         vkResetCommandBuffer(cb, 0);
 
@@ -559,20 +559,10 @@ struct VkRendererImpl {
         bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         vkBeginCommandBuffer(cb, &bi);
 
-        // --- FIX: TRANSITION OVERLAY LAYOUT ---
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = overlayImages[imageIndex];
-        barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &barrier);
+        // NOTE: No layout barrier needed here. nk_glfw3_render()'s render pass
+        // already leaves overlayImages[imageIndex] in SHADER_READ_ONLY_OPTIMAL
+        // (finalLayout = SHADER_READ_ONLY_OPTIMAL in nk_glfw3_create_render_pass),
+        // which is exactly the layout needed for sampling in the overlay pipeline.
 
         VkClearValue clear{};
         clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
@@ -595,12 +585,11 @@ struct VkRendererImpl {
         vkCmdEndRenderPass(cb);
         vkEndCommandBuffer(cb);
 
-        // 3. Submit
         VkSubmitInfo si{};
         si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         
         VkSemaphore wait[] = { uiSemaphore }; 
-        VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT };
         
         si.waitSemaphoreCount = 1;
         si.pWaitSemaphores = wait;

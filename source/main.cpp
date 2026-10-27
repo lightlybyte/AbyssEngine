@@ -1,6 +1,9 @@
 #include <iostream>
 #include <stdexcept>
+
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include "vkrender.h"
 #include "engine.h"
@@ -12,6 +15,10 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 #include "nuklear.h"
+
+// NOTE: Do NOT include "nuklear_glfw_vulkan.h" here. It causes linker conflicts.
+// Forward declaration (implementation is in vkrender.cpp via NK_IMPLEMENTATION)
+void nk_glfw3_new_frame();
 
 static GLFWwindow* g_window = nullptr;
 static VkRenderer g_renderer;
@@ -26,9 +33,9 @@ int main() {
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
-        g_window = glfwCreateWindow(mode->width, mode->height, "DATS", nullptr, nullptr);
+        // Pass the monitor as the 4th argument to make it true fullscreen
+        g_window = glfwCreateWindow(mode->width, mode->height, "DATS", monitor, nullptr);
         if (!g_window) throw std::runtime_error("Failed to create window");
 
         if (!g_renderer.init(g_window, mode->width, mode->height)) {
@@ -48,10 +55,12 @@ int main() {
 
             Engine::Update(g_renderer, dt);
 
+            nk_glfw3_new_frame();
+
             switch (Engine::GetState()) {
                 case GameState::MENU:
                     Engine::RenderMenu(g_renderer, g_renderer.ctx());
-                    g_renderer.drawFrame();
+                    g_renderer.drawFrame(); 
                     break;
                 case GameState::PLAYING:
                     Engine::RenderGame(g_renderer);

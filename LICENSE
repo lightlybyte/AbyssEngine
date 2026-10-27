@@ -1,21 +1,37 @@
-MIT License
+DATS SOURCE-AVAILABLE LICENSE (DSAL)
+Version 1.0
+Copyright (c) 2026 lightlybyt. All Rights Reserved.
 
-Copyright (c) 2026 lightlybyt
+1. DEFINITIONS
+"Software" means the DATS game, the Abyss Engine, and all associated source code, object code, assets, and documentation. "Licensor" means lightlybyt. "Licensee" means any individual or entity exercising rights under this License.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+2. GRANT OF LICENSE
+Subject to the terms and conditions of this License, the Licensor hereby grants the Licensee a worldwide, royalty-free, non-exclusive, non-transferable license to:
+(a) Use and execute the Software for personal, non-commercial entertainment purposes;
+(b) Reproduce, modify, and create derivative works of the Software's source code for personal, non-commercial use; and
+(c) Distribute the original Software or derivative works thereof, strictly on a non-commercial basis, provided that any such distribution includes this License and the original copyright notice.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+3. RESTRICTIONS ON COMMERCIAL USE
+The Licensee expressly agrees that the rights granted under Section 2 do not include, and the Licensee shall not engage in, any of the following:
+(a) The sale, lease, rental, sublicense, or any other commercial exploitation of the Software, its source code, or its assets;
+(b) The incorporation of the Software or any derivative work into any commercial product, service, or application offered for monetary compensation;
+(c) The distribution of the Software or its derivatives on any commercial storefront (including but not limited to Steam, Epic Games Store, or the Apple App Store) for a fee; or
+(d) The use of the Abyss Engine to develop any commercial software without the prior express written consent of the Licensor.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+4. MODIFICATION AND MODDING
+Modifications and derivative works intended for use within the Unified DATS Modding (UDM) platform are permitted and may be distributed freely. The Licensee is strictly prohibited from monetizing, paywalling, or otherwise commercially exploiting any modifications or derivative works.
+
+5. INTELLECTUAL PROPERTY AND CONTRIBUTIONS
+The Licensor retains all right, title, and interest in and to the Software, including all intellectual property rights. Any contributions submitted to the official repository shall be deemed licensed to the Licensor under the terms of this License, granting the Licensor a perpetual, irrevocable, worldwide, royalty-free right to use, modify, and distribute such contributions.
+
+6. TERM AND TERMINATION
+This License is effective until terminated. The Licensee's rights under this License will terminate automatically without notice if the Licensee fails to comply with any term(s) of this License. Upon termination, the Licensee must cease all use and distribution of the Software and destroy all copies in their possession.
+
+7. DISCLAIMER OF WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+9. GOVERNING LAW
+This License shall be governed by and construed in accordance with the laws of the Licensor's jurisdiction, without regard to its conflict of law provisions.
