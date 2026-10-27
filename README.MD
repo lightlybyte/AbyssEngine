@@ -67,11 +67,11 @@ bc1q7l3cwycx5v3aprt5rksccr9zpgzgp33yu9v9pt
 ```text
 0x86E65e135deb4EA17bA161f79021a629877ECb20
 ```
-**Litecoin (LTC)***
+**Litecoin (LTC)**
 ```text
 ltc1qy9h4ppp0py32597dx2nrqpm6zklg6934ypvjvz
 ```
-**Solana (SOL)***
+**Solana (SOL)**
 ```text
 HfANSA58L9bWwHcRpDfVRUpQia5LDj4oZbauhiL6noea
 ```
