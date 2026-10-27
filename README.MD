@@ -1,16 +1,17 @@
-# DATS (Dynamic Arms Training Simulator) (Made in my Abyss Engine!)
+# DATS (Dynamic Arms Training Simulator) (Made in my Abyss Engine! For a friend game jam!)
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 ![C](https://img.shields.io/badge/C-11-lightgrey.svg)
 ![Assembly](https://img.shields.io/badge/Assembly-x86--64-red.svg)
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.3-orange.svg)
-![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Lumoinance-black.svg)
+![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Luminance-black.svg)
 ![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
 ![Budget](https://img.shields.io/badge/Budget-%241-brightgreen.svg)
 
 DATS is a tactical military simulation powered by **Abyss Engine**. 
 
-The client is entirely hand-coded, utilizing a pure C/C++ architecture with Vulkan for rendering and AbyssEngine for specific high-performance subsystems. The server is written from scratch in pure C and x86-64 Assembly, operating at 120Hz to 24
+The client is entirely hand-coded, utilizing a pure C/C++ architecture with Vulkan for rendering and AbyssEngine for specific high-performance subsystems. The server is written from scratch in pure C and x86-64 Assembly, operating at 120Hz to 240Hz.
+
 ## Technical Architecture
 
 ### Abyss Engine
@@ -27,8 +28,7 @@ Abyss Engine is a custom, purpose-built game engine designed for extreme efficie
 - **Audio:** Opus compression for all audio. The Geiger system compresses 500GB of source samples into a 10MB runtime footprint.
 
 ### Performance Targets
-- **Binary Size:** ~13MB
-- **Storage:** 10GB
+- **Storage:** 1GB Maximum (Friends Game Jam Reqs)
 - **RAM:** 4GB minimum
 - **GPU:** Intel HD 620 (128MB VRAM)
 - **OS:** Windows 8 / Linux Kernel 4.0+
