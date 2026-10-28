@@ -52,6 +52,10 @@ Alpha development. The engine is currently being created, ported, and optimized.
 
 ---
 
+## References and Inspirations
+
+Our main inspiration for creating DATS is because we looked at AAA games and we looked at the entry hardware to play them and they looked like they didn't correlate with the prices, so we decided to go scavenging to find anything that will possibly lower the entry hardware to play AAA games and we stumbled 
+
 ## Support the Developer
 
 DATS and Abyss Engine are developed entirely independently with a $0.79 budget. There is no publisher, no investors, and no monetization in the game itself. 
@@ -75,5 +79,4 @@ ltc1qy9h4ppp0py32597dx2nrqpm6zklg6934ypvjvz
 HfANSA58L9bWwHcRpDfVRUpQia5LDj4oZbauhiL6noea
 ```
 
-We apreciate any funding of any size
-This is not for revenue, this is for the people.
+We apreciate any funding of any size.
