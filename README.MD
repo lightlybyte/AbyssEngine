@@ -1,12 +1,11 @@
 # DATS (Dynamic Arms Training Simulator) (Made in my Abyss Engine! For a friend game jam!)
+## Made with a ~$0.79 budget (unspent)
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 ![C](https://img.shields.io/badge/C-11-lightgrey.svg)
-![Assembly](https://img.shields.io/badge/Assembly-x86--64-red.svg)
 ![Vulkan](https://img.shields.io/badge/Vulkan-1.3-orange.svg)
 ![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Luminance-black.svg)
 ![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
-![Budget](https://img.shields.io/badge/Budget-%241-brightgreen.svg)
 
 DATS is a tactical military simulation powered by **Abyss Engine**. 
 
@@ -24,8 +23,8 @@ Abyss Engine is a custom, purpose-built game engine designed for extreme efficie
 ### Asset Pipeline
 - **Procedural Generation:** Bulk assets (terrain, foliage, clutter) are generated at runtime to minimize binary size.
 - **Custom Parsers:** Features a custom C/C++ parser for `.blend` files (BPC/MDP), eliminating the need for external export tools.
-- **Optimized Formats:** Uses AVIF/WebP for textures, WebM for video, and SVG for UI.
-- **Audio:** Opus compression for all audio. The Geiger system compresses 500GB of source samples into a 10MB runtime footprint.
+- **Optimized Formats:** Uses runtime generated assets with some stored on disk, this balances binary size and QOL and speed of load.
+- **Audio:** Opus compression for all audio. The system compresses 500GB of source samples into a 10MB runtime footprint. (I mean, i hand picked em...)
 
 ### Performance Targets
 - **Storage:** 1GB Maximum (Friends Game Jam Reqs)
@@ -35,7 +34,7 @@ Abyss Engine is a custom, purpose-built game engine designed for extreme efficie
 
 ## Features
 
-- **Custom Server Architecture:** Written in C and ASM. No third-party netcode frameworks.
+- **Custom Server Architecture:** Written in C and C++. No third-party netcode frameworks.
 - **Authoritative Physics:** Server validates all movement, ballistics, and collision. Impossible physics are rejected at the packet level.
 - **Hardcore Simulation:** No health bars. No crosshairs. Players must physically check their bodies for trauma, bleeding, and fractures.
 - **Modding Support:** Custom in-game modding platform (UDM) utilizing a custom scripting language.
@@ -49,13 +48,13 @@ The source code is open for viewing, studying, and modding. Commercial distribut
 
 ## Status
 
-Alpha development. The engine is currently being ported and optimized. 
+Alpha development. The engine is currently being created, ported, and optimized. 
 
 ---
 
 ## Support the Developer
 
-DATS and Abyss Engine are developed entirely independently with a $1 budget. There is no publisher, no investors, and no monetization in the game itself. 
+DATS and Abyss Engine are developed entirely independently with a $0.79 budget. There is no publisher, no investors, and no monetization in the game itself. 
 
 If you wish to support the ongoing development, you can send donations via the following cryptocurrency networks:
 
@@ -77,3 +76,4 @@ HfANSA58L9bWwHcRpDfVRUpQia5LDj4oZbauhiL6noea
 ```
 
 We apreciate any funding of any size
+This is not for revenue, this is for the people.

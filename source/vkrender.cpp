@@ -60,7 +60,6 @@ struct VkRendererImpl {
 
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-    // Overlay Pipeline Resources
     VkSampler overlaySampler = VK_NULL_HANDLE;
     VkDescriptorSetLayout overlayDescriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout overlayPipelineLayout = VK_NULL_HANDLE;
@@ -559,10 +558,19 @@ struct VkRendererImpl {
         bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         vkBeginCommandBuffer(cb, &bi);
 
-        // NOTE: No layout barrier needed here. nk_glfw3_render()'s render pass
-        // already leaves overlayImages[imageIndex] in SHADER_READ_ONLY_OPTIMAL
-        // (finalLayout = SHADER_READ_ONLY_OPTIMAL in nk_glfw3_create_render_pass),
-        // which is exactly the layout needed for sampling in the overlay pipeline.
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = overlayImages[imageIndex];
+        barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         VkClearValue clear{};
         clear.color = {{0.05f, 0.05f, 0.08f, 1.0f}};
@@ -589,7 +597,7 @@ struct VkRendererImpl {
         si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         
         VkSemaphore wait[] = { uiSemaphore }; 
-        VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT };
+        VkPipelineStageFlags stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         
         si.waitSemaphoreCount = 1;
         si.pWaitSemaphores = wait;
