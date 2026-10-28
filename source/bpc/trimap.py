@@ -7,7 +7,7 @@ from glb_reader import read_glb
 from scene_walk import walk_scene
 from extract import extract_positions
 
-FLOAT_DECIMALS = 6
+FLOAT_DECIMALS = 4   # was 6; 0.1 mm precision, invisible at this scale
 
 
 def _round(arr):
@@ -43,6 +43,15 @@ def _dedup(pos, uv=None, nrm=None):
     return uniq_pos, uniq_uv, uniq_nrm, inverse
 
 
+def _delta_encode(indices_flat):
+    """Flat [a,b,c, d,e,f,...] -> flat [a,b-a,c-a, d,e-d,f-d,...] (int64)."""
+    arr = np.asarray(indices_flat, dtype=np.int64).reshape(-1, 3)
+    delta = arr.copy()
+    delta[:, 1] -= arr[:, 0]
+    delta[:, 2] -= arr[:, 0]
+    return delta.ravel().tolist()
+
+
 def build_triangle_map(glb_path):
     gltf, bin_blob = read_glb(glb_path)
     materials = gltf.get("materials", [])
@@ -62,25 +71,29 @@ def build_triangle_map(glb_path):
                 nrm_w = nrm_w / np.maximum(n, 1e-12)
 
             uniq_pos, uniq_uv, uniq_nrm, inverse = _dedup(pos_w, uvs, nrm_w)
-            new_indices = inverse[indices].astype(np.uint32)
+            new_indices = inverse[indices].astype(np.int64)
 
             mat_name = "none"
             if material_idx is not None and 0 <= material_idx < len(materials):
-                mat_name = materials[material_idx].get("name", f"mat_{material_idx}")
+                mat_name = materials[material_idx].get(
+                    "name", f"mat_{material_idx}"
+                )
 
             meshes_out.append({
                 "source": name,
                 "mesh_index": int(mesh_idx),
                 "primitive_index": int(prim_idx),
-                "material_index": int(material_idx) if material_idx is not None else -1,
+                "material_index": int(material_idx)
+                    if material_idx is not None else -1,
                 "material_name": mat_name,
                 "world_matrix": _round(world_M),
                 "n_verts": int(len(uniq_pos)),
                 "n_tris": int(len(new_indices) // 3),
+                "index_encoding": "delta",
                 "vertices": _round(uniq_pos),
                 "uvs": _round(uniq_uv),
                 "normals": _round(uniq_nrm),
-                "indices": new_indices.tolist(),
+                "indices": _delta_encode(new_indices),
             })
 
     return meshes_out
@@ -94,8 +107,14 @@ if __name__ == "__main__":
     out = sys.argv[2] if len(sys.argv) > 2 else "tri_map.json"
 
     data = build_triangle_map(src)
-    with open(out, "w", encoding="utf-8") as f:
-        json.dump(data, f, separators=(",", ":"))
+
+    try:
+        import orjson
+        with open(out, "wb") as f:
+            f.write(orjson.dumps(data))
+    except ImportError:
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
 
     print(f"wrote {out}: {len(data)} meshes, "
           f"{sum(m['n_verts'] for m in data)} verts, "
