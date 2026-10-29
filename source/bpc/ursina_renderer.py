@@ -1,61 +1,61 @@
-import json
+"""
+ursina_renderer.py
+
+Render tri_map in Ursina. Loads .tmb (binary) if available, else .json.
+
+Usage:
+    python ursina_renderer.py              # auto-rotate + orbit on drag
+    python ursina_renderer.py --no-rotate  # static, orbit on drag only
+    python ursina_renderer.py --wire       # wireframe (debug)
+"""
+
 import os
 import sys
-import numpy as np
 from ursina import *
+
+from tri_map_loader import load_tri_map
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(SCRIPT_DIR, "tri_map.json")
+BIN_PATH  = os.path.join(SCRIPT_DIR, "tri_map.tmb")
 
 AUTO_ROTATE = "--no-rotate" not in sys.argv
 WIREFRAME = "--wire" in sys.argv
 ROTATE_SPEED = 20.0
 
 MATERIAL_COLORS = {
-    0: color.rgb(55,  55,  62),
-    1: color.rgb(42,  42,  42),
-    2: color.rgb(95,  95, 100),
-    3: color.rgb(78,  78,  78),
+    0: color.rgb(55,  55,  62),    # Black_Metal
+    1: color.rgb(42,  42,  42),    # Black_Plastic
+    2: color.rgb(95,  95, 100),    # Grey_Metal
+    3: color.rgb(78,  78,  78),    # Grey_Plastic
 }
 DEFAULT_COLOR = color.rgb(80, 80, 80)
 
 
-def load_meshes(path):
-    """Load tri_map.json; decode delta indices if present."""
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"not found: {path}")
+# ------------------------------------------------------------
+# Load — binary preferred, JSON fallback
+# ------------------------------------------------------------
+if os.path.exists(BIN_PATH):
+    meshes_data = load_tri_map(BIN_PATH)
+    print(f"Loaded {len(meshes_data)} meshes from {BIN_PATH}")
+elif os.path.exists(JSON_PATH):
+    meshes_data = load_tri_map(JSON_PATH)
+    print(f"Loaded {len(meshes_data)} meshes from {JSON_PATH}")
+else:
+    raise FileNotFoundError(
+        f"Neither {BIN_PATH} nor {JSON_PATH} exists."
+    )
 
-    try:
-        import orjson
-        with open(path, "rb") as f:
-            data = orjson.loads(f.read())
-    except ImportError:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-    # Decode delta-encoded indices
-    for m in data:
-        if m.get("index_encoding") == "delta":
-            flat = np.asarray(m["indices"], dtype=np.int64)
-            tri = flat.reshape(-1, 3).copy()
-            tri[:, 1] += tri[:, 0]
-            tri[:, 2] += tri[:, 0]
-            m["indices"] = tri.ravel().tolist()
-            del m["index_encoding"]
-        # Else: already absolute, leave as-is.
-
-    return data
-
-
-meshes_data = load_meshes(JSON_PATH)
-print(f"Loaded {len(meshes_data)} meshes")
 for i, m in enumerate(meshes_data):
     print(f"  [{i}] {m.get('source','?'):>10}  "
           f"mat={m.get('material_index')} ({m.get('material_name')})  "
           f"v={m['n_verts']} t={m['n_tris']}")
 
 
+# ------------------------------------------------------------
+# App
+# ------------------------------------------------------------
 app = Ursina()
 window.title = "Gun Triangle Map"
 window.size = (1280, 720)
@@ -64,6 +64,9 @@ DirectionalLight(y=3, z=-4, x=-3, rotation=(50, -30, 0), color=color.white)
 AmbientLight(color=color.rgba(60, 60, 70, 255))
 
 
+# ------------------------------------------------------------
+# Bounds
+# ------------------------------------------------------------
 all_verts = [v for m in meshes_data for v in m["vertices"]]
 xs = [v[0] for v in all_verts]
 ys = [v[1] for v in all_verts]
@@ -77,6 +80,9 @@ size = max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
 print(f"Model size: {size:.3f}  center: {center}")
 
 
+# ------------------------------------------------------------
+# Pivot at origin; vertices centered in local space
+# ------------------------------------------------------------
 pivot = Entity(position=(0, 0, 0))
 pivot.rotation_y = 90
 
@@ -108,6 +114,9 @@ for i, mesh_data in enumerate(meshes_data):
     )
 
 
+# ------------------------------------------------------------
+# Camera
+# ------------------------------------------------------------
 camera.position = Vec3(0, 0, -size * 2.2)
 camera.look_at(Vec3(0, 0, 0))
 
@@ -115,6 +124,9 @@ camera.look_at(Vec3(0, 0, 0))
 _initial_rot = Vec3(0, 90, 0)
 
 
+# ------------------------------------------------------------
+# Update / input
+# ------------------------------------------------------------
 def update():
     if AUTO_ROTATE:
         pivot.rotation_y += ROTATE_SPEED * time.dt

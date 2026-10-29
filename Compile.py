@@ -60,10 +60,23 @@ ENGINE_CPP = [
     str(SOURCE / "vkrender.cpp"),
     str(SOURCE / "engine.cpp"),
     str(SOURCE / "main.cpp"),
+    str(SOURCE / "python.cpp"),
+]
+
+# Python embedding config (system Python 3.12)
+PYTHON_ROOT = Path(r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.12-64")
+PYTHON_INC  = PYTHON_ROOT / "Include"
+PYTHON_LIB  = PYTHON_ROOT / "libs"
+PYTHON_DLL  = PYTHON_ROOT / "python312.dll"
+
+# Add Python include to C++ flags
+CXX_FLAGS += [
+    "-I", str(PYTHON_INC),
 ]
 
 LIBS_WINDOWS = [
     str(VULKAN_LIB / "vulkan-1.lib"),
+    str(PYTHON_LIB / "python312.lib"),
     "-L", str(LIB_DIR),
     "-lglfw3",
     "-lgdi32", "-luser32", "-lshell32", "-lole32",
@@ -217,6 +230,16 @@ def build(platform, full_wipe):
         raise RuntimeError("Failed to link executable")
 
     log(f"build OK: {out_exe}")
+
+    # Copy the Python DLL next to the executable so it can load at runtime.
+    if platform.lower() == "windows" and PYTHON_DLL.exists():
+        dest_dll = build_dir / PYTHON_DLL.name
+        try:
+            shutil.copy2(str(PYTHON_DLL), str(dest_dll))
+            log(f"  Copied {PYTHON_DLL.name} to build directory.")
+        except Exception as e:
+            log(f"  WARNING: could not copy Python DLL: {e}")
+
     return out_exe
 
 # ---------------------------------------------------------------

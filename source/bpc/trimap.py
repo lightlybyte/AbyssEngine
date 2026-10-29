@@ -1,15 +1,49 @@
-import sys
+"""
+trimap.py
+
+Extract every triangle from a .glb into a compact tri-map.
+
+Output per mesh:
+  - source         : object name
+  - mesh_index     : glTF mesh index
+  - primitive_index: glTF primitive index within the mesh
+  - material_index : glTF material slot (-1 if none)
+  - material_name  : glTF material name
+  - world_matrix   : 4x4 world transform applied to vertices
+  - n_verts        : number of unique vertices
+  - n_tris         : number of triangles
+  - index_encoding : "delta" (JSON only)
+  - vertices       : [[x, y, z], ...]
+  - uvs            : [[u, v], ...] or null
+  - normals        : [[nx, ny, nz], ...] or null
+  - indices        : delta-encoded flat list (JSON), absolute flat list (binary)
+
+Formats:
+  trimap.json  — compact JSON (4-decimal rounding, delta-encoded indices)
+  trimap.tmb   — binary (float32 vertices + uint32 indices), 2.7x smaller
+
+Usage:
+    python trimap.py <file.glb> [out.json] [--binary]
+    python trimap.py example\\test.glb --binary
+"""
+
 import os
+import sys
 import json
+import struct
 import numpy as np
 
 from glb_reader import read_glb
 from scene_walk import walk_scene
 from extract import extract_positions
 
-FLOAT_DECIMALS = 4   # was 6; 0.1 mm precision, invisible at this scale
+
+FLOAT_DECIMALS = 4
 
 
+# ------------------------------------------------------------
+# Utilities
+# ------------------------------------------------------------
 def _round(arr):
     if arr is None:
         return None
@@ -17,6 +51,7 @@ def _round(arr):
 
 
 def _dedup(pos, uv=None, nrm=None):
+    """Dedup by (position, uv). Returns uniq_pos, uniq_uv, uniq_nrm, inverse."""
     pos_r = np.round(pos, FLOAT_DECIMALS)
     if uv is not None:
         combined = np.hstack([pos_r, np.round(uv, FLOAT_DECIMALS)])
@@ -44,7 +79,7 @@ def _dedup(pos, uv=None, nrm=None):
 
 
 def _delta_encode(indices_flat):
-    """Flat [a,b,c, d,e,f,...] -> flat [a,b-a,c-a, d,e-d,f-d,...] (int64)."""
+    """Flat [a,b,c,...] -> flat [a,b-a,c-a,...] (int64)."""
     arr = np.asarray(indices_flat, dtype=np.int64).reshape(-1, 3)
     delta = arr.copy()
     delta[:, 1] -= arr[:, 0]
@@ -52,6 +87,17 @@ def _delta_encode(indices_flat):
     return delta.ravel().tolist()
 
 
+def _delta_decode(indices_flat):
+    """Inverse of _delta_encode. Returns flat numpy int64 array."""
+    arr = np.asarray(indices_flat, dtype=np.int64).reshape(-1, 3).copy()
+    arr[:, 1] += arr[:, 0]
+    arr[:, 2] += arr[:, 0]
+    return arr.ravel()
+
+
+# ------------------------------------------------------------
+# Build
+# ------------------------------------------------------------
 def build_triangle_map(glb_path):
     gltf, bin_blob = read_glb(glb_path)
     materials = gltf.get("materials", [])
@@ -99,28 +145,104 @@ def build_triangle_map(glb_path):
     return meshes_out
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python tri_map.py <file.glb> [out.json]")
-        sys.exit(1)
-    src = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else "tri_map.json"
-
-    data = build_triangle_map(src)
-
+# ------------------------------------------------------------
+# Writers
+# ------------------------------------------------------------
+def write_json(meshes_out, path):
     try:
         import orjson
-        with open(out, "wb") as f:
-            f.write(orjson.dumps(data))
+        with open(path, "wb") as f:
+            f.write(orjson.dumps(meshes_out))
     except ImportError:
-        with open(out, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"))
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(meshes_out, f, separators=(",", ":"))
+    print(f"wrote {path}: {os.path.getsize(path)/1024:.1f} KB")
 
-    print(f"wrote {out}: {len(data)} meshes, "
-          f"{sum(m['n_verts'] for m in data)} verts, "
-          f"{sum(m['n_tris'] for m in data)} tris, "
-          f"{os.path.getsize(out)/1024/1024:.2f} MB")
+
+def write_binary(meshes_out, path):
+    header = []
+    vertex_blob = bytearray()
+    index_blob = bytearray()
+    v_off = 0
+    i_off = 0
+
+    for m in meshes_out:
+        h = {k: v for k, v in m.items() if k not in ("vertices", "indices")}
+        h.pop("index_encoding", None)
+        h["vertex_offset"] = v_off
+        h["index_offset"] = i_off
+
+        idx_list = m["indices"]
+        if m.get("index_encoding") == "delta":
+            idx_list = _delta_decode(idx_list)
+
+        verts = np.asarray(m["vertices"], dtype=np.float32)
+        idxs  = np.asarray(idx_list, dtype=np.uint32)
+
+        vb = verts.tobytes()
+        ib = idxs.tobytes()
+        vertex_blob.extend(vb)
+        index_blob.extend(ib)
+        v_off += len(vb)
+        i_off += len(ib)
+
+        header.append(h)
+
+    header_json = json.dumps(header, separators=(",", ":")).encode("utf-8")
+
+    with open(path, "wb") as f:
+        f.write(b"TMB\x01")
+        f.write(struct.pack("<I", len(header_json)))
+        f.write(header_json)
+        f.write(bytes(vertex_blob))
+        f.write(bytes(index_blob))
+
+    total = 4 + 4 + len(header_json) + len(vertex_blob) + len(index_blob)
+    print(f"wrote {path}: {total/1024:.1f} KB "
+          f"(header {len(header_json)/1024:.1f} KB, "
+          f"verts {len(vertex_blob)/1024:.1f} KB, "
+          f"idx {len(index_blob)/1024:.1f} KB)")
+
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+def main(argv):
+    if len(argv) < 2:
+        print("Usage: python trimap.py <file.glb> [out.json] [--binary]")
+        sys.exit(1)
+
+    src = argv[1]
+    binary_flag = "--binary" in argv
+
+    # Output name: use explicit non-flag arg, else default
+    out = None
+    for a in argv[2:]:
+        if not a.startswith("--"):
+            out = a
+            break
+    if out is None:
+        out = "trimap.json"
+
+    print(f"Reading {src} ...")
+    data = build_triangle_map(src)
+
+    total_verts = sum(m["n_verts"] for m in data)
+    total_tris = sum(m["n_tris"] for m in data)
+    print(f"Extracted {len(data)} meshes, "
+          f"{total_verts} verts, {total_tris} tris")
+
     for i, m in enumerate(data):
         print(f"  [{i}] {m['source']:>10}  "
               f"mat={m['material_index']} ({m['material_name']})  "
               f"v={m['n_verts']} t={m['n_tris']}")
+
+    write_json(data, out)
+
+    if binary_flag:
+        bin_path = os.path.splitext(out)[0] + ".tmb"
+        write_binary(data, bin_path)
+
+
+if __name__ == "__main__":
+    main(sys.argv)

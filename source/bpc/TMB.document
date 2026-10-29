@@ -1,0 +1,816 @@
+TMB — Triangle Map Binary Format
+Version: 1.2
+Format ID: 54 4D 42 03
+Status: Draft
+Keywords: MUST, MUST NOT, SHOULD, SHOULD NOT, MAY are as defined in RFC 2119.
+
+
+================================================================
+1. PURPOSE, SCOPE, AND NON-GOALS
+================================================================
+
+TMB is a compact binary serialization of indexed triangle meshes
+extracted from a glTF 2.0 asset, intended for consumption by
+renderers and shape-analysis tools that require:
+
+  - deterministic layout and deterministic bytes;
+  - fast sequential parsing;
+  - file size competitive with, or smaller than, the source glTF;
+  - explicit, testable conformance rules.
+
+1.1 Scope
+
+  TMB is defined only for triangle primitives (glTF mode TRIANGLES,
+  or absent mode, which per the glTF specification defaults to
+  TRIANGLES). A conforming writer MUST reject any input primitive
+  whose declared mode is not TRIANGLES.
+
+  A conforming writer MUST reject input primitives whose geometry
+  is delivered through a compressed intermediate (Draco, meshopt).
+  Compressed geometry MUST be decompressed before conversion.
+
+  TMB stores vertex positions in world space (section 3.3). TMB
+  does NOT preserve the source node hierarchy, local vertex
+  coordinates, animations, skins, morph targets, cameras, or
+  textures. TMB is not an interchange format for glTF and MUST NOT
+  be used where round-trip reconstruction of the source document is
+  required.
+
+1.2 Non-goals
+
+  TMB does not define a material model beyond a name and a numeric
+  slot index. TMB does not carry image data. TMB does not define a
+  scene graph. TMB does not support streaming; readers may assume
+  the entire file is available before parsing. TMB does not define
+  cross-descriptor vertex or index sharing; instanced primitives
+  appear as independent descriptors with duplicated geometry
+  (section 10.3).
+
+1.3 Endianness
+
+  TMB is little-endian on all platforms. Conforming writers on
+  big-endian platforms MUST serialize explicitly little-endian.
+  Conforming readers MAY assume all multi-byte integers and all
+  floating-point values are little-endian.
+
+
+================================================================
+2. CONFORMANCE AND NOTATION
+================================================================
+
+A conforming reader accepts every file valid under section 7 and
+rejects every file invalid under section 7.
+
+A conforming writer produces files valid under section 7.
+
+"Byte offset" is a zero-based count of bytes from a stated origin.
+"Region" is a contiguous run of bytes identified by name and
+offset. "Blob" is a region containing homogeneous typed data.
+
+Sizes are denoted:
+
+  Nv[k]   vertex count of mesh entry k
+  Nt[k]   triangle count of mesh entry k
+  Ni[k]   index count of mesh entry k, equal to 3 * Nt[k]
+  W[k]    index width in bytes of mesh entry k (1, 2, or 4)
+  Av[k]   attribute region byte length of mesh entry k
+  H       byte length of the header region
+  V       byte length of the vertex blob
+  I       byte length of the index blob
+  A       byte length of the attribute blob
+  K       number of mesh entries (descriptors in the header)
+
+This specification defines TMB version 1.2, which uses format ID
+0x54 0x4D 0x42 0x03. Prior versions 1.0 (0x01) and 1.1 (0x02) are
+rejected by version 1.2 readers without attempt at best-effort
+parsing.
+
+
+================================================================
+3. TERMINOLOGY
+================================================================
+
+3.1 Tri-map
+
+  A tri-map is an ordered collection of K mesh entries. Each entry
+  comprises a descriptor (metadata), a vertex array (Nv float32
+  triples), an index array (Ni integers of width W), and an
+  optional attribute region.
+
+3.2 Triangle
+
+  A triangle in a mesh entry is the ordered triple of consecutive
+  index values at positions 3*m, 3*m+1, 3*m+2 in the index array,
+  for m in [0, Nt). Winding order is preserved as authored.
+
+3.3 Local and world vertex space
+
+  Local vertex space: coordinates before any per-node transform.
+
+  World vertex space: coordinates after multiplying each local
+  position by the mesh entry's world_matrix as a column vector:
+  v_world = M · v_local.
+
+  TMB stores vertices in WORLD vertex space. A conforming reader
+  MUST treat the stored vertex coordinates as final and MUST NOT
+  reapply world_matrix.
+
+  TMB stores normals, when present, in WORLD vertex space, already
+  transformed per section 8.12, sign-corrected per section 8.13,
+  and renormalized.
+
+3.4 Material slot
+
+  The integer index into the source glTF's "materials" array. -1
+  denotes no material assigned.
+
+
+================================================================
+4. BYTE LAYOUT
+================================================================
+
+A TMB file consists of five consecutive regions:
+
+  Offset          Length   Region
+  --------------  -------  ----------------------------------
+  0               4        Magic
+  4               4        Header length (uint32 LE)
+  8               H        Header (H = header length)
+  8 + H           V        Vertex blob
+  8 + H + V       I        Index blob
+  8 + H + V + I   A        Attribute blob
+
+  Total file length = 8 + H + V + I + A.
+
+All multi-byte integers are little-endian. All floating-point
+values are IEEE 754 binary32, little-endian. TMB does not use
+IEEE 754 binary64 anywhere.
+
+A conforming writer MUST produce a file whose length equals
+8 + H + V + I + A. A conforming reader MUST reject a file whose
+length does not equal that value. The minimum valid file length is
+10 bytes (K = 0, header "[]", all blobs empty).
+
+
+================================================================
+5. REGION DEFINITIONS
+================================================================
+
+5.1 Magic (4 bytes, offset 0)
+
+  The four bytes 0x54, 0x4D, 0x42, 0x03, in that order. This
+  sequence identifies a TMB version 1.2 file. Any other sequence,
+  including 0x54 0x4D 0x42 0x01 and 0x54 0x4D 0x42 0x02, MUST be
+  rejected.
+
+5.2 Header length (4 bytes, offset 4)
+
+  Unsigned 32-bit little-endian integer equal to H.
+
+  Conforming writers MUST emit H such that 8 + H is less than or
+  equal to the total file length.
+
+  Conforming readers MUST reject H such that 8 + H exceeds the
+  total file length.
+
+5.3 Header (H bytes, offset 8)
+
+  A JSON array of K mesh descriptor objects (K >= 0), UTF-8
+  encoded with no byte order mark, no trailing newline, and no
+  whitespace outside of JSON string values. A conforming reader
+  MUST reject a Header region that is not valid UTF-8, not valid
+  JSON, or not a JSON array.
+
+  Field definitions are in section 6.
+
+5.4 Vertex blob (V bytes, offset 8 + H)
+
+  Concatenation, in header-array order, of each mesh entry's
+  vertex array:
+
+    V = sum over k of (Nv[k] * 12)
+
+  Each mesh entry contributes Nv[k] consecutive float32 triples
+  (x, y, z) in world vertex space.
+
+  The byte position of mesh entry k is given by vertex_offset[k]
+  (section 6.11).
+
+5.5 Index blob (I bytes, offset 8 + H + V)
+
+  Concatenation, in header-array order, of each mesh entry's
+  index array:
+
+    I = sum over k of (Nt[k] * 3 * W[k])
+
+  Each mesh entry contributes Nt[k] * 3 consecutive unsigned
+  integers of width W[k] bytes each. Values are ABSOLUTE offsets
+  into the mesh entry's own vertex array; they are NOT
+  delta-encoded. Conforming writers MUST NOT store delta-encoded
+  indices.
+
+  The byte position of mesh entry k is given by index_offset[k]
+  (section 6.12).
+
+5.6 Attribute blob (A bytes, offset 8 + H + V + I)
+
+  Concatenation, in header-array order, of each mesh entry's
+  attribute region:
+
+    A = sum over k of Av[k]
+
+  For mesh entry k, the region is laid out as follows:
+
+    - one 4-byte-aligned block per attribute declared in
+      attr_layout[k], in the order declared in attr_layout[k];
+    - each block contains Nv[k] elements of the declared type;
+    - each element contains "components" values of "type";
+    - block byte length = Nv[k] * components * sizeof(type);
+    - if the current write position within the region is not a
+      multiple of 4, pad with zero bytes to the next multiple of 4
+      before writing the block.
+
+  A conforming reader MUST treat padding bytes as zero-valued and
+  MUST NOT interpret them as attribute data. A conforming writer
+  MUST emit zero-valued padding.
+
+  The byte position of mesh entry k's attribute region is
+  attr_offset[k] (section 6.14).
+
+
+================================================================
+6. HEADER DESCRIPTOR FIELDS
+================================================================
+
+The Header region is a JSON array. Each element is a JSON object
+(a "descriptor"). Every descriptor MUST contain every field listed
+below. Fields typed "integer" MUST be serialized as JSON numbers
+with no fractional part; a conforming reader MUST accept integer
+values in the range [-2^31, 2^31 - 1] and MAY reject values with a
+fractional part or outside that range. Fields typed "number"
+additionally accept fractional and exponent forms.
+
+A descriptor that omits a required or nullable field, or that
+supplies a field with a JSON type inconsistent with its definition,
+MUST be rejected.
+
+6.1 source (string, required)
+
+  Scene-graph node name from which the mesh was extracted. May be
+  empty. Identification only.
+
+6.2 mesh_index (integer >= 0, required)
+
+  Zero-based index of the source mesh in the input glTF document's
+  "meshes" array.
+
+6.3 primitive_index (integer >= 0, required)
+
+  Zero-based index of the primitive within that source mesh's
+  "primitives" array.
+
+6.4 material_index (integer >= -1, required)
+
+  Material slot referenced by the source primitive, or -1 if
+  absent.
+
+6.5 material_name (string, nullable)
+
+  If material_index == -1, MUST be JSON null.
+  If material_index >= 0, MUST be the value of "name" on the
+  referenced material, or JSON null if the material has no name.
+
+  The string value "none" is not reserved and is a legal material
+  name; the presence of a material is indicated only by
+  material_index != -1.
+
+6.6 world_matrix (array of 4 arrays of 4 numbers, required)
+
+  A 4x4 affine transform, ROW-MAJOR: world_matrix[i][j] is the
+  element in row i, column j. Column 3 of rows 0..2 holds the
+  translation. Vertices transform as column vectors:
+  v_world = M · v_local.
+
+  The bottom row (world_matrix[3][0..3]) MUST be exactly equal to
+  [0.0, 0.0, 0.0, 1.0] when each element is interpreted as an IEEE
+  754 double and compared using the == operator. In particular,
+  the value -0.0 (negative zero) is equal to 0.0 under ==, and
+  both are accepted.
+
+  The 3x3 block M[:3,:3] MUST be invertible. A conforming writer
+  MUST reject any input whose transform produces a singular 3x3
+  block. A conforming reader MUST reject a descriptor whose 3x3
+  block is singular.
+
+  world_matrix is informational only; see section 3.3.
+
+6.7 n_verts (integer in [1, 2^31 - 1], required)
+
+  Number of vertices in this mesh entry.
+
+6.8 n_tris (integer in [1, 2^30 - 1], required)
+
+  Number of triangles in this mesh entry. The upper bound
+  2^30 - 1 ensures n_tris * 3 and n_tris * 12 both fit in
+  signed 32-bit range.
+
+6.9 n_indices (integer >= 3, required)
+
+  Number of entries in the index array. MUST equal 3 * n_tris.
+
+6.10 index_offset (integer in [0, 2^31 - 1], required)
+
+  Byte offset of this mesh entry's index array within the index
+  blob. For the first descriptor this MUST be 0. For each
+  subsequent descriptor k > 0, this MUST equal
+  index_offset[k-1] + Nt[k-1] * 3 * W[k-1].
+
+6.11 vertex_offset (integer in [0, 2^31 - 1], required)
+
+  Byte offset of this mesh entry's vertex array within the vertex
+  blob. For the first descriptor this MUST be 0. For each
+  subsequent descriptor k > 0, this MUST equal
+  vertex_offset[k-1] + Nv[k-1] * 12.
+
+6.12 index_width (integer in {1, 2, 4}, required)
+
+  Byte width of each index.
+
+  A conforming writer MUST select the smallest W in {1, 2, 4} such
+  that n_verts <= 2^(8 * W). That is:
+
+    if n_verts <= 256:      index_width = 1
+    elif n_verts <= 65536:  index_width = 2
+    else:                   index_width = 4
+
+  A conforming reader MUST accept any W in {1, 2, 4} that
+  satisfies n_verts <= 2^(8 * W) and MUST reject W not in
+  {1, 2, 4} or too small to address index n_verts - 1.
+
+6.13 attr_offset (integer in [0, 2^31 - 1], required)
+
+  Byte offset of this mesh entry's attribute region within the
+  attribute blob. For the first descriptor this MUST be 0. For
+  each subsequent descriptor k > 0, this MUST equal
+  attr_offset[k-1] + Av[k-1].
+
+6.14 attr_length (integer >= 0, required)
+
+  Byte length of this mesh entry's attribute region within the
+  attribute blob. MUST equal the sum over attr_layout of:
+
+    padded_align(Nv * components * sizeof(type), 4)
+
+  where padded_align(x, 4) = ceil(x / 4) * 4, and sizeof(type) is
+  4 for f32, 2 for u16, 2 for i16. Padding bytes MUST be zero. A
+  mesh entry with an empty attr_layout MUST set attr_length to 0.
+
+6.15 attr_layout (array of objects, required)
+
+  Ordered sequence of attribute declarations. Array elements MUST
+  be sorted by the "name" field in strict ascending byte order of
+  their UTF-8 encodings (this is required for determinism; see
+  §6.17). Each element MUST contain:
+
+    name        (string)  one of "normals", "uvs", or an extension
+                          name of the form "ext:<vendor>:<attr>"
+                          where <vendor> and <attr> each match
+                          [a-z0-9_]+
+    type        (string)  one of "f32", "u16", "i16"
+    components  (integer) positive integer
+
+  For name == "uvs", components MUST be 2 and type MUST be one of
+  {f32, u16, i16}.
+  For name == "normals", components MUST be 3 and type MUST be
+  "f32".
+  For extension names, type and components are producer-defined.
+
+  attr_layout MUST NOT contain two entries with the same name.
+
+6.16 Absence of uvs and normals
+
+  There are no separate "uvs_present" or "normals_present"
+  boolean fields. Presence of an attribute is determined solely by
+  the presence of an entry in attr_layout with the corresponding
+  name. This eliminates the possibility of the boolean and the
+  layout disagreeing.
+
+  A reader that needs to know whether a mesh has UVs MUST scan
+  attr_layout for an entry named "uvs". The scan is O(K_attr) with
+  K_attr typically 0, 1, or 2.
+
+  When normals are present, they MUST be unit-length in world
+  vertex space to within the tolerance in §7.25.
+
+6.17 Canonical JSON
+
+  Conforming writers MUST emit the header JSON in canonical form
+  so that two conforming writers producing the same in-memory
+  representation produce byte-identical headers:
+
+    6.17.1  No whitespace outside of string values. No trailing
+            newline. No byte order mark.
+
+    6.17.2  Object keys appear in strict ascending order of their
+            UTF-8 byte encodings.
+
+    6.17.3  Integers are emitted without a decimal point, without
+            an exponent, and without leading zeros. The only
+            integer that may begin with '0' is 0 itself.
+
+    6.17.4  Floats are emitted with the shortest decimal string
+            that round-trips to the same binary32 value under
+            ECMAScript Number.prototype.toString() semantics
+            (equivalently, the algorithm specified in RFC 8785
+            §3.2.2.3). This is deterministic across conforming
+            implementations: one specific byte sequence per
+            float value.
+
+    6.17.5  Negative zero is emitted as "0" not "-0".
+
+    6.17.6  Strings are UTF-8 encoded. ASCII control characters
+            (U+0000 through U+001F), '"', and '\' are escaped as
+            specified in RFC 8259 §7. Non-ASCII characters are
+            emitted unescaped.
+
+    6.17.7  Null is emitted as the four bytes n, u, l, l.
+
+    6.17.8  Booleans are emitted as true or false.
+
+  A conforming reader MUST accept non-canonical header JSON so
+  long as it is valid JSON. Canonical form is a writer
+  requirement, not a reader requirement.
+
+  For the world_matrix array and other float-valued fields, the
+  canonical form is §6.17.4. This pins the byte sequence a reader
+  will see for a given matrix, but does not imply that two
+  writers given the same source glTF will necessarily produce
+  byte-identical output if the source matrix was computed
+  differently (for example, different matrix-decomposition order
+  in the exporter).
+
+
+================================================================
+7. VALIDATION
+================================================================
+
+A conforming reader MUST reject a TMB file if any of the
+following conditions hold:
+
+7.1   The first four bytes are not 0x54 0x4D 0x42 0x03.
+7.2   The file length is less than 10.
+7.3   The value of H causes 8 + H to exceed the file length.
+7.4   The Header region is not valid UTF-8.
+7.5   The Header region is not valid JSON.
+7.6   The Header region does not decode to a JSON array.
+7.7   Any descriptor is not a JSON object, omits a required or
+      nullable field, or supplies a field with a JSON type
+      inconsistent with section 6.
+7.8   Any descriptor has n_verts < 1, n_verts > 2^31 - 1,
+      n_tris < 1, or n_tris > 2^30 - 1.
+7.9   Any descriptor has n_indices != 3 * n_tris.
+7.10  Any descriptor has index_width not in {1, 2, 4}, or has
+      index_width too small to satisfy n_verts <= 2^(8 * W).
+7.11  Any descriptor's world_matrix bottom row is not equal to
+      [0, 0, 0, 1] under IEEE 754 double == comparison
+      (section 6.6).
+7.12  Any descriptor's world_matrix 3x3 block is singular.
+7.13  For each k, vertex_offset[k] != sum_{j<k}(Nv[j] * 12).
+7.14  For each k, index_offset[k] != sum_{j<k}(Nt[j] * 3 * W[j]).
+7.15  For each k, attr_offset[k] != sum_{j<k}(Av[j]).
+7.16  Any descriptor's attr_length does not equal the sum over
+      attr_layout of padded_align(Nv * components * sizeof(type),
+      4).
+7.17  Any descriptor's attr_layout violates §6.15: unsorted
+      names, duplicate names, illegal extension name characters,
+      or inconsistent type/components for known names.
+7.18  V != sum over k of (Nv[k] * 12).
+7.19  I != sum over k of (Nt[k] * 3 * W[k]).
+7.20  A != sum over k of Av[k].
+7.21  The total file length is not exactly 8 + H + V + I + A.
+7.22  Any index value in any mesh entry is greater than or equal
+      to that mesh entry's n_verts.
+7.23  Any float32 value in the vertex blob is a signaling NaN.
+7.24  Any float32 value in the vertex blob is an infinity or a
+      quiet NaN.
+7.25  When attr_layout declares "normals", any stored normal
+      triple (nx, ny, nz) does not satisfy:
+      |sqrt(nx^2 + ny^2 + nz^2) - 1| <= 1e-4.
+7.26  Any float32 value in the attribute blob (excluding padding)
+      is a signaling NaN.
+7.27  When material_index == -1, material_name is not JSON null.
+7.28  When material_index >= 0, material_name is not JSON null
+      or a string.
+
+A conforming reader SHOULD reject a TMB file if:
+
+7.29  Any float32 value in the attribute blob is an infinity or a
+      quiet NaN.
+7.30  The header region length H exceeds an implementation-
+      defined maximum.
+7.31  The number of descriptors K exceeds an implementation-
+      defined maximum.
+7.32  The total file length exceeds an implementation-defined
+      maximum.
+
+A conforming reader MUST NOT reject a TMB file on the sole basis
+of any condition not listed in 7.1 through 7.28.
+
+
+================================================================
+8. WRITER REQUIREMENTS
+================================================================
+
+A conforming writer MUST:
+
+8.1   Emit exactly the byte sequence 0x54 0x4D 0x42 0x03 in the
+      first four bytes.
+8.2   Emit H as a little-endian uint32.
+8.3   Emit the Header region as UTF-8 encoded canonical compact
+      JSON per section 6.17.
+8.4   Include every required and nullable field (section 6) with
+      the declared JSON type in every descriptor.
+8.5   Emit the vertex blob of length V = sum(Nv * 12) at byte
+      offset 8 + H.
+8.6   Emit the index blob of length I = sum(Nt * 3 * W) at byte
+      offset 8 + H + V.
+8.7   Emit the attribute blob of length A = sum(Av) at byte
+      offset 8 + H + V + I, with each attribute block padded to a
+      4-byte boundary per §5.6.
+8.8   Emit vertex data as little-endian float32, index data as
+      little-endian unsigned integers of width W[k], attribute
+      data as little-endian values of the declared type, and
+      padding as zero bytes.
+8.9   Emit vertex_offset, index_offset, and attr_offset fields
+      that form the packed sequences described in sections 6.10,
+      6.11, and 6.13.
+8.10  Emit a file whose total length equals 8 + H + V + I + A.
+8.11  Store vertex positions in world vertex space, applying
+      world_matrix as a column vector to each local position
+      before writing.
+8.12  Store normals, when declared in attr_layout, in world
+      vertex space, computed as:
+
+        n_world = normalize( (M[:3,:3])^(-T) · n_local )
+
+      where M[:3,:3] is the 3x3 upper-left block of world_matrix.
+      The result MUST be renormalized to unit length after
+      transformation.
+8.13  If det(M[:3,:3]) < 0, negate n_world after the
+      inverse-transpose and before renormalization. This keeps
+      normals consistent with winding order for mirrored
+      transforms.
+8.14  Reject any input whose world_matrix 3x3 block is singular.
+8.15  Reject any input primitive whose declared mode is not
+      TRIANGLES. If the source primitive has no explicit mode,
+      treat it as TRIANGLES.
+8.16  Reject any input primitive whose geometry is delivered
+      through a compressed intermediate (Draco, meshopt) without
+      first decoding it.
+8.17  Store indices as ABSOLUTE offsets into the mesh entry's own
+      vertex array. MUST NOT store delta-encoded indices.
+8.18  Select index_width per §6.12.
+8.19  Sort attr_layout by name per §6.15.
+8.20  Canonicalize the header JSON per §6.17.
+8.21  Emit material_name as JSON null when material_index == -1,
+      and as the material's name string or JSON null when
+      material_index >= 0.
+8.22  Pad each attribute block to a 4-byte boundary within the
+      attribute region, per §5.6, and set attr_length to the
+      padded sum.
+
+A conforming writer SHOULD:
+
+8.23  Emit uvs and normals attributes for every descriptor where
+      the input supplies them, and omit them where the input does
+      not.
+8.24  Emit descriptors in the order in which meshes are traversed
+      in the source glTF scene graph. Note that a single source
+      mesh referenced by multiple nodes (instancing) produces
+      multiple descriptors with identical (mesh_index,
+      primitive_index) but potentially different world_matrix
+      and derived vertex data. This is normal and MUST NOT be
+      treated as an error by readers.
+
+A conforming writer MUST NOT:
+
+8.25  Emit a file that would fail any MUST-reject rule in
+      section 7 when read back.
+8.26  Emit non-deterministic output for the same input and the
+      same writer version. The "input" here is the source glTF
+      document and the writer version; a writer version that
+      canonicalizes identically to another version MUST produce
+      the same bytes. Extension fields (attr_layout entries with
+      "ext:" names) are the responsibility of the extension spec
+      to define deterministically; a writer that emits them
+      guarantees determinism for the fields it emits, not for
+      fields added by future versions.
+
+
+================================================================
+9. FORWARD COMPATIBILITY
+================================================================
+
+A conforming reader MUST ignore descriptor fields not listed in
+section 6, and MUST NOT reject a descriptor because it contains
+such fields. Unknown descriptor fields are forward-compatible.
+
+A conforming reader MUST accept JSON null in fields marked
+nullable and MUST reject JSON null in fields marked required.
+
+A conforming reader MUST reject any file whose magic octet
+(fourth byte) is not 0x03. Unknown magic octets are NOT
+forward-compatible: a version 1.2 reader MUST NOT attempt
+best-effort parsing of a file bearing a different magic octet.
+Version 1.2 is an incompatible successor to 1.0 and 1.1; those
+files MUST be rejected.
+
+A future minor version of this format MAY add new optional
+attributes to attr_layout under namespaced extension names, and
+MAY add new optional descriptor fields. Any such addition MUST
+specify whether the field is emitted deterministically by
+writers that emit it.
+
+A future major version MUST use a new magic octet and MAY change
+the region layout, field set, or binary types.
+
+
+================================================================
+10. SIZE FORMULA AND SIZE NOTES
+================================================================
+
+10.1 Exact formulas
+
+  For a tri-map with K mesh entries:
+
+    V  =  sum over k of (Nv[k] * 12)
+    I  =  sum over k of (Nt[k] * 3 * W[k])
+    A  =  sum over k of Av[k]
+
+    where Av[k]  =  sum over attributes in attr_layout[k] of
+                    padded_align(Nv[k] * components * sizeof(type), 4)
+
+  file_length = 8 + H + V + I + A
+
+10.2 Header size
+
+  The header length H is the byte length of the canonicalized
+  JSON array of descriptors. It is bounded below by
+  approximately 300 bytes per descriptor for descriptors
+  containing world_matrix and fixed fields, plus approximately
+  40 bytes per attribute declared in attr_layout. H does not
+  grow with Nv; the vertex, index, and attribute blobs are the
+  only components that scale with geometry.
+
+10.3 No cross-descriptor sharing
+
+  TMB does not define shared vertex or index arrays between mesh
+  entries. Instanced primitives (the same source mesh referenced
+  by multiple nodes) appear as independent descriptors, each
+  carrying its own copy of the transformed vertices, indices,
+  and attributes. This is a size cost; it is required for
+  readers to operate on each descriptor independently without
+  cross-references. A deduplicating writer MAY detect that two
+  descriptors would produce byte-identical vertex, index, and
+  attribute data and emit only one, but MUST NOT do so unless
+  the source allows it and the writer documents the choice.
+
+10.4 Attributes not included in H
+
+  The header contains only attr_layout descriptions, not
+  attribute data. UVs and normals therefore contribute to A,
+  not to H. This is the primary reason TMB is smaller than the
+  JSON variant on assets with attributes.
+
+
+================================================================
+11. RELATIONSHIP TO JSON TRI-MAP VARIANT
+================================================================
+
+The JSON variant (extension .json) is a human-readable,
+non-canonical serialization differing from TMB in the following
+ways:
+
+  - Indices are delta-encoded (tag "index_encoding": "delta").
+    TMB MUST NOT contain delta-encoded indices (§8.17).
+
+  - Vertex coordinates are stored as decimal strings rounded to
+    4 decimal places using round-half-to-even (banker's rounding).
+    TMB stores IEEE 754 binary32. These are not byte-identical in
+    general. Consumers needing bit-exact equivalence use TMB;
+    consumers needing human readability use JSON.
+
+  - UVs and normals MAY appear inline as JSON arrays of numbers.
+    TMB stores them in the attribute blob as typed binary data.
+
+  - The JSON variant does not require canonicalization and is
+    not suitable for content hashing or byte-comparison.
+
+A tool that consumes both variants MUST normalize them to the same
+in-memory representation before comparison, treating JSON decimal
+strings as approximately equal to TMB binary32 values within the
+tolerance in §7.25 (for normals) or within a tolerance of
+1e-3 * |value| (for positions).
+
+
+================================================================
+12. SECURITY CONSIDERATIONS
+================================================================
+
+Sections 7.30 through 7.32 allow a reader to impose
+implementation-defined limits on header length, descriptor
+count, and total file length. These reader-imposed maxima,
+combined with the arithmetic consistency check in §7.21, are
+what actually bound resource consumption. Section 7.21 alone
+merely ensures that the declared sizes are internally
+consistent with the actual file size; it is not by itself a
+defense against a well-formed but very large file.
+
+Section 7.22 constrains index values to valid offsets into the
+mesh entry's own vertex array, preventing out-of-bounds reads in
+readers that do not otherwise bounds-check index access.
+
+Sections 7.23, 7.24, 7.26, and 7.29 exclude signaling NaN,
+infinity, and quiet NaN from both vertex and attribute data.
+Readers that load data directly into GPU buffers without
+validation are otherwise vulnerable to floating-point anomalies
+in downstream shading.
+
+Section 8.16 requires decoding of compressed intermediates
+before conversion, preventing a writer from silently emitting
+unusable geometry for a compressed source.
+
+Sections 8.20 and 8.26 require canonical and deterministic
+output, enabling content hashing and signature verification of
+TMB files.
+
+
+================================================================
+13. REFERENCES
+================================================================
+
+- RFC 2119: Key words for use in RFCs to Indicate Requirement
+  Levels.
+- RFC 8259 / ECMA-404: The JSON Data Interchange Syntax.
+- RFC 8785: JSON Canonicalization Scheme (JCS).
+- IEEE 754-2019: IEEE Standard for Floating-Point Arithmetic.
+- glTF 2.0 Specification, Khronos Group.
+
+
+================================================================
+14. VERSION HISTORY
+================================================================
+
+Version 1.2 (0x03) — incompatible with 1.0, 1.1
+  - Removed uvs_present and normals_present booleans; presence
+    determined solely by attr_layout (§6.16). Resolves S1.
+  - Added normal sign flip for det(M[:3,:3]) < 0 (§8.13).
+    Resolves S2.
+  - Fixed index-width inequality to n_verts <= 2^(8*W) (§6.12).
+    Resolves S3.
+  - Pinned canonical float form to RFC 8785 semantics
+    (§6.17.4). Resolves S4 without moving world_matrix out of
+    JSON.
+  - Restated world_matrix bottom-row check in IEEE 754 ==
+    terms, accepting -0.0 (§6.6, §7.11). Resolves S5.
+  - Restated normal unit-length check as magnitude error, not
+    per-component (§7.25). Resolves S6.
+  - Dropped duplicate-descriptor validation rule entirely;
+    instancing is a legitimate case (§8.24). Resolves S7.
+  - Added 4-byte alignment for attribute blocks (§5.6, §8.22).
+    Resolves S8.
+  - Restated §12 to attribute resource bounds to §7.30–§7.32,
+    not §7.21. Resolves S9.
+  - Clarified JSON integer range and derived offset bounds
+    (§6, §6.7, §6.8, §6.10, §6.11, §6.13). Resolves S10.
+  - Made material_name nullable; removed "none" reservation
+    (§6.5, §7.27, §7.28). Resolves S11.
+  - Tightened §8.26 to specify determinism per writer version
+    and clarify extension-field responsibility. Resolves S12.
+  - Required attr_layout sorting by name (§6.15), fixing
+    canonicalization coverage. Resolves S13.
+  - Added §10.3 stating instanced primitives are duplicated;
+    no cross-descriptor sharing. Resolves S14.
+  - Lowered §7.2 minimum file length to 10. Resolves S15.
+  - Stated explicitly that this spec defines TMB 1.2 with
+    magic 0x03 (§2, §5.1). Resolves S16.
+  - §8.15 now specifies that absent mode defaults to
+    TRIANGLES. Resolves nit on §8.14.
+  - §11 specifies round-half-to-even for the JSON variant's
+    4-decimal rounding. Resolves nit on §11.
+  - §6.15 constrains extension name characters to [a-z0-9_]+.
+    Resolves nit on §6.17.
+  - §6.6 restates row-major in the body, not only in §14.
+    Resolves nit on §6.6.
+  - Changed magic fourth byte from 0x02 to 0x03.
+
+Version 1.1 (0x02) — superseded
+  - Moved UVs and normals to attribute blob.
+  - Added adaptive index width.
+  - Added world-space normals contract (without sign flip).
+  - Added round-trip determinism (JSON canonicalization as
+    first specified).
+  - Multiple correctness fixes vs. 1.0.
+
+Version 1.0 (0x01) — superseded
+  - Initial draft.
