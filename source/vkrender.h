@@ -7,6 +7,7 @@
 
 struct GLFWwindow;
 struct VkRendererImpl;
+struct nk_context;
 
 struct VkVertex {
     glm::vec3 pos;
