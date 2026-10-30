@@ -132,79 +132,105 @@ void Engine::RenderMenu(VkRenderer& renderer, struct nk_context* ctx) {
     }
 }
 
-static void renderMainMenu(struct nk_context* ctx, int width, int height) {
-    struct nk_color background = nk_rgba(10, 12, 14, 255);
-    struct nk_color border = nk_rgba(60, 80, 60, 255);
-    struct nk_color text = nk_rgba(200, 220, 200, 255);
-    struct nk_color button_normal = nk_rgba(30, 40, 30, 255);
-    struct nk_color button_hover = nk_rgba(50, 70, 50, 255);
-    struct nk_color button_active = nk_rgba(80, 120, 80, 255);
-
+static void applyTacticalTheme(struct nk_context* ctx,
+                               struct nk_color bg, struct nk_color border,
+                               struct nk_color text, struct nk_color accent,
+                               struct nk_color dim) {
     nk_style_default(ctx);
-
-    ctx->style.window.background = background;
+    ctx->style.window.background = bg;
     ctx->style.window.border_color = border;
     ctx->style.window.border = 2.0f;
-    ctx->style.window.fixed_background = nk_style_item_color(background);
-
+    ctx->style.window.fixed_background = nk_style_item_color(bg);
     ctx->style.text.color = text;
 
-    ctx->style.button.normal = nk_style_item_color(button_normal);
-    ctx->style.button.hover = nk_style_item_color(button_hover);
-    ctx->style.button.active = nk_style_item_color(button_active);
+    ctx->style.button.normal = nk_style_item_color(bg);
+    ctx->style.button.hover = nk_style_item_color(accent);
+    ctx->style.button.active = nk_style_item_color(accent);
     ctx->style.button.border_color = border;
-    ctx->style.button.text_normal = text;
+    ctx->style.button.border = 1.0f;
+    ctx->style.button.rounding = 0.0f;
+    ctx->style.button.text_background = bg;
+    ctx->style.button.text_normal = accent;
     ctx->style.button.text_hover = nk_rgba(255, 255, 255, 255);
     ctx->style.button.text_active = nk_rgba(255, 255, 255, 255);
+
+    ctx->style.edit.normal = nk_style_item_color(nk_rgba(20, 24, 28, 255));
+    ctx->style.edit.border_color = border;
+    ctx->style.edit.text_normal = text;
+    ctx->style.edit.text_hover = text;
+
+    ctx->style.property.normal = nk_style_item_color(bg);
+    ctx->style.property.hover = nk_style_item_color(accent);
+    ctx->style.property.active = nk_style_item_color(accent);
+    ctx->style.property.border_color = border;
+    ctx->style.property.label_normal = text;
+}
+
+static void renderMainMenu(struct nk_context* ctx, int width, int height) {
+    struct nk_color bg     = nk_rgba(10, 12, 14, 255);
+    struct nk_color border = nk_rgba(180, 140, 60, 255);
+    struct nk_color text   = nk_rgba(220, 220, 200, 255);
+    struct nk_color accent = nk_rgba(220, 160, 60, 255);
+    struct nk_color dim    = nk_rgba(90, 90, 80, 255);
+
+    applyTacticalTheme(ctx, bg, border, text, accent, dim);
 
     struct nk_rect full_screen = nk_rect(0, 0, (float)width, (float)height);
     nk_flags flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND;
 
     if (nk_begin(ctx, "DATS_MAIN", full_screen, flags)) {
-        nk_layout_row_dynamic(ctx, (float)height * 0.15f, 1);
-
-        nk_layout_row_dynamic(ctx, 70, 1);
-        ctx->style.text.color = nk_rgba(0, 255, 100, 255);
-        nk_label(ctx, "DYNAMIC ARMS TRAINING SIMULATOR", NK_TEXT_LEFT);
+        nk_layout_row_dynamic(ctx, (float)height * 0.18f, 1);
+        ctx->style.text.color = nk_rgba(255, 200, 100, 255);
+        nk_label(ctx, "DATS", NK_TEXT_LEFT);
 
         nk_layout_row_dynamic(ctx, 24, 1);
-        ctx->style.text.color = nk_rgba(100, 120, 100, 255);
+        ctx->style.text.color = nk_rgba(150, 170, 150, 255);
         nk_label(ctx, "// TACTICAL OPERATIONS COMMAND", NK_TEXT_LEFT);
 
-        nk_layout_row_dynamic(ctx, (float)height * 0.10f, 1);
+        nk_layout_row_dynamic(ctx, (float)height * 0.03f, 1);
 
-        nk_layout_space_begin(ctx, NK_STATIC, 400, 4);
+        nk_layout_space_begin(ctx, NK_STATIC, 500, 1);
 
-        nk_layout_space_push(ctx, nk_rect(50, 0, 300, 55));
+        nk_layout_space_push(ctx, nk_rect((float)width * 0.25f,
+                                          (float)height * 0.30f,
+                                          (float)width * 0.50f, 50));
         if (nk_button_label(ctx, "DEPLOY")) {
             Engine::SetState(GameState::PLAYING);
             std::cout << "[DATS] Deploying to server..." << std::endl;
         }
 
-        nk_layout_space_push(ctx, nk_rect(50, 65, 300, 55));
+        nk_layout_space_push(ctx, nk_rect((float)width * 0.25f,
+                                          (float)height * 0.39f,
+                                          (float)width * 0.50f, 50));
         if (nk_button_label(ctx, "SETTINGS")) {
             Engine::SetMenuScreen(MenuScreen::SETTINGS);
         }
 
-        nk_layout_space_push(ctx, nk_rect(50, 130, 300, 55));
+        nk_layout_space_push(ctx, nk_rect((float)width * 0.25f,
+                                          (float)height * 0.48f,
+                                          (float)width * 0.50f, 50));
         if (nk_button_label(ctx, "PYTHON CONSOLE")) {
             Engine::SetMenuScreen(MenuScreen::PYTHON_CONSOLE);
         }
 
-        nk_layout_space_push(ctx, nk_rect(50, 195, 300, 55));
+        nk_layout_space_push(ctx, nk_rect((float)width * 0.25f,
+                                          (float)height * 0.57f,
+                                          (float)width * 0.50f, 50));
         if (nk_button_label(ctx, "CREDITS")) {
             Engine::SetMenuScreen(MenuScreen::CREDITS);
         }
 
-        nk_layout_space_push(ctx, nk_rect(50, 260, 300, 55));
+        nk_layout_space_push(ctx, nk_rect((float)width * 0.25f,
+                                          (float)height * 0.66f,
+                                          (float)width * 0.50f, 50));
         if (nk_button_label(ctx, "QUIT")) {
             glfwSetWindowShouldClose(g_window, true);
         }
 
         nk_layout_space_end(ctx);
 
-        nk_layout_row_dynamic(ctx, (float)height * 0.25f, 1);
-        ctx->style.text.color = nk_rgba(80, 80, 80, 255);
+        nk_layout_row_dynamic(ctx, (float)height * 0.10f, 1);
+        ctx->style.text.color = dim;
         nk_label(ctx, "BUILD: 2027.Q1 // ABYSS ENGINE", NK_TEXT_LEFT);
         nk_label(ctx, "PYTHON EMBEDDED: ENABLED", NK_TEXT_LEFT);
     }
@@ -212,15 +238,13 @@ static void renderMainMenu(struct nk_context* ctx, int width, int height) {
 }
 
 static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
-    struct nk_color background = nk_rgba(14, 16, 18, 255);
-    struct nk_color border = nk_rgba(80, 100, 80, 255);
-    struct nk_color text = nk_rgba(200, 220, 200, 255);
+    struct nk_color bg     = nk_rgba(12, 14, 16, 255);
+    struct nk_color border = nk_rgba(80, 140, 80, 255);
+    struct nk_color text   = nk_rgba(200, 220, 200, 255);
+    struct nk_color accent = nk_rgba(100, 200, 100, 255);
+    struct nk_color dim    = nk_rgba(90, 90, 80, 255);
 
-    nk_style_default(ctx);
-    ctx->style.window.background = background;
-    ctx->style.window.border_color = border;
-    ctx->style.window.border = 2.0f;
-    ctx->style.text.color = text;
+    applyTacticalTheme(ctx, bg, border, text, accent, dim);
 
     struct nk_rect full_screen = nk_rect(0, 0, (float)width, (float)height);
     nk_flags flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND;
@@ -228,8 +252,7 @@ static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
     if (nk_begin(ctx, "DATS_SETTINGS", full_screen, flags)) {
         nk_layout_row_dynamic(ctx, (float)height * 0.15f, 1);
 
-        nk_layout_row_dynamic(ctx, 60, 1);
-        ctx->style.text.color = nk_rgba(0, 255, 100, 255);
+        ctx->style.text.color = nk_rgba(120, 220, 120, 255);
         nk_label(ctx, "SETTINGS", NK_TEXT_LEFT);
 
         nk_layout_row_dynamic(ctx, 30, 1);
@@ -243,8 +266,8 @@ static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
             Engine::SetMenuScreen(MenuScreen::MAIN);
         }
 
-        nk_layout_row_dynamic(ctx, (float)height * 0.3f, 1);
-        ctx->style.text.color = nk_rgba(80, 80, 80, 255);
+        nk_layout_row_dynamic(ctx, (float)height * 0.30f, 1);
+        ctx->style.text.color = dim;
         nk_label(ctx, "BUILD: 2027.Q1 // ABYSS ENGINE", NK_TEXT_LEFT);
     }
     nk_end(ctx);
@@ -252,15 +275,13 @@ static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
 
 
 static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
-    struct nk_color background = nk_rgba(8, 10, 12, 255);
-    struct nk_color border = nk_rgba(60, 80, 100, 255);
-    struct nk_color text = nk_rgba(0, 255, 150, 255);
+    struct nk_color bg     = nk_rgba(6, 8, 10, 255);
+    struct nk_color border = nk_rgba(60, 100, 140, 255);
+    struct nk_color text   = nk_rgba(0, 220, 160, 255);
+    struct nk_color accent = nk_rgba(60, 150, 200, 255);
+    struct nk_color dim    = nk_rgba(70, 70, 80, 255);
 
-    nk_style_default(ctx);
-    ctx->style.window.background = background;
-    ctx->style.window.border_color = border;
-    ctx->style.window.border = 2.0f;
-    ctx->style.text.color = text;
+    applyTacticalTheme(ctx, bg, border, text, accent, dim);
 
     struct nk_rect full_screen = nk_rect(0, 0, (float)width, (float)height);
     nk_flags flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND;
@@ -268,8 +289,7 @@ static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
     if (nk_begin(ctx, "DATS_PYTHON", full_screen, flags)) {
         nk_layout_row_dynamic(ctx, (float)height * 0.12f, 1);
 
-        nk_layout_row_dynamic(ctx, 50, 1);
-        ctx->style.text.color = nk_rgba(0, 255, 100, 255);
+        ctx->style.text.color = nk_rgba(0, 220, 160, 255);
         nk_label(ctx, "PYTHON CONSOLE", NK_TEXT_LEFT);
 
         nk_layout_row_dynamic(ctx, 24, 1);
@@ -278,7 +298,7 @@ static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
 
         nk_layout_row_dynamic(ctx, 24, 1);
         ctx->style.text.color = Engine::IsPythonInitialized()
-                                    ? nk_rgba(0, 255, 100, 255)
+                                    ? nk_rgba(0, 220, 160, 255)
                                     : nk_rgba(255, 80, 80, 255);
         nk_label(ctx, Engine::IsPythonInitialized()
                           ? "STATUS: INTERPRETER ACTIVE"
@@ -287,7 +307,7 @@ static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
 
         nk_layout_row_dynamic(ctx, (float)height * 0.28f, 1);
 
-        ctx->style.text.color = nk_rgba(200, 220, 200, 255);
+        ctx->style.text.color = nk_rgba(180, 200, 180, 255);
         nk_label(ctx, "> import sys\n> print('DATS Python bridge online')\nDATS Python bridge online", NK_TEXT_LEFT);
 
         nk_layout_row_dynamic(ctx, 60, 1);
@@ -307,8 +327,8 @@ static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
             Engine::SetMenuScreen(MenuScreen::MAIN);
         }
 
-        nk_layout_row_dynamic(ctx, (float)height * 0.2f, 1);
-        ctx->style.text.color = nk_rgba(80, 80, 80, 255);
+        nk_layout_row_dynamic(ctx, (float)height * 0.20f, 1);
+        ctx->style.text.color = dim;
         nk_label(ctx, "BUILD: 2027.Q1 // ABYSS ENGINE", NK_TEXT_LEFT);
     }
     nk_end(ctx);
@@ -316,15 +336,13 @@ static void renderPythonConsole(struct nk_context* ctx, int width, int height) {
 
 
 static void renderCreditsMenu(struct nk_context* ctx, int width, int height) {
-    struct nk_color background = nk_rgba(12, 14, 16, 255);
-    struct nk_color border = nk_rgba(100, 80, 60, 255);
-    struct nk_color text = nk_rgba(220, 200, 180, 255);
+    struct nk_color bg     = nk_rgba(12, 14, 16, 255);
+    struct nk_color border = nk_rgba(180, 140, 60, 255);
+    struct nk_color text   = nk_rgba(220, 200, 180, 255);
+    struct nk_color accent = nk_rgba(220, 160, 60, 255);
+    struct nk_color dim    = nk_rgba(90, 90, 80, 255);
 
-    nk_style_default(ctx);
-    ctx->style.window.background = background;
-    ctx->style.window.border_color = border;
-    ctx->style.window.border = 2.0f;
-    ctx->style.text.color = text;
+    applyTacticalTheme(ctx, bg, border, text, accent, dim);
 
     struct nk_rect full_screen = nk_rect(0, 0, (float)width, (float)height);
     nk_flags flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND;
@@ -332,7 +350,6 @@ static void renderCreditsMenu(struct nk_context* ctx, int width, int height) {
     if (nk_begin(ctx, "DATS_CREDITS", full_screen, flags)) {
         nk_layout_row_dynamic(ctx, (float)height * 0.15f, 1);
 
-        nk_layout_row_dynamic(ctx, 60, 1);
         ctx->style.text.color = nk_rgba(255, 160, 80, 255);
         nk_label(ctx, "CREDITS", NK_TEXT_LEFT);
 
@@ -350,7 +367,7 @@ static void renderCreditsMenu(struct nk_context* ctx, int width, int height) {
         }
 
         nk_layout_row_dynamic(ctx, (float)height * 0.25f, 1);
-        ctx->style.text.color = nk_rgba(100, 80, 60, 255);
+        ctx->style.text.color = dim;
         nk_label(ctx, "BUILD: 2027.Q1 // ABYSS ENGINE", NK_TEXT_LEFT);
     }
     nk_end(ctx);

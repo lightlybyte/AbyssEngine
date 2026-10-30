@@ -63,16 +63,18 @@ ENGINE_CPP = [
     str(SOURCE / "python.cpp"),
 ]
 
-# Python embedding config (system Python 3.12)
-PYTHON_ROOT = Path(r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.12-64")
-PYTHON_INC  = PYTHON_ROOT / "Include"
-PYTHON_LIB  = PYTHON_ROOT / "libs"
-PYTHON_DLL  = PYTHON_ROOT / "python312.dll"
+# Python embedding config
+# Use system Python .lib/.h for compile-time linking; use local embeddable package for runtime DLLs.
+PYTHON_SYSTEM_ROOT = Path(r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.12-64")
+PYTHON_INC  = PYTHON_SYSTEM_ROOT / "Include"
+PYTHON_LIB  = PYTHON_SYSTEM_ROOT / "libs"
+PYTHON_DLL  = PYTHON_SYSTEM_ROOT / "python312.dll"
 
 # Add Python include to C++ flags
-CXX_FLAGS += [
-    "-I", str(PYTHON_INC),
-]
+if PYTHON_INC.exists():
+    CXX_FLAGS += [
+        "-I", str(PYTHON_INC),
+    ]
 
 LIBS_WINDOWS = [
     str(VULKAN_LIB / "vulkan-1.lib"),
@@ -81,6 +83,9 @@ LIBS_WINDOWS = [
     "-lglfw3",
     "-lgdi32", "-luser32", "-lshell32", "-lole32",
 ]
+
+# Local embeddable package copied next to the executable at runtime (no env vars needed)
+PYTHON_EMBED_ROOT = LIB_DIR / "pythonembed"
 
 LIBS_LINUX = [
     "-lvulkan",
@@ -231,14 +236,42 @@ def build(platform, full_wipe):
 
     log(f"build OK: {out_exe}")
 
-    # Copy the Python DLL next to the executable so it can load at runtime.
-    if platform.lower() == "windows" and PYTHON_DLL.exists():
-        dest_dll = build_dir / PYTHON_DLL.name
-        try:
-            shutil.copy2(str(PYTHON_DLL), str(dest_dll))
-            log(f"  Copied {PYTHON_DLL.name} to build directory.")
-        except Exception as e:
-            log(f"  WARNING: could not copy Python DLL: {e}")
+    # Copy Python embeddable package files next to the executable so it can load at runtime.
+    if platform.lower() == "windows" and PYTHON_EMBED_ROOT.exists():
+        log("Copying Python embeddable package to build directory...")
+        for item in PYTHON_EMBED_ROOT.iterdir():
+            dest = build_dir / item.name
+            try:
+                if item.is_dir():
+                    shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                    log(f"  Copied {item.name}/")
+                else:
+                    shutil.copy2(str(item), str(dest))
+                    log(f"  Copied {item.name}")
+            except Exception as e:
+                log(f"  WARNING: could not copy {item.name}: {e}")
+
+    # Also copy the system Python Lib directory (contains encodings, stdlib) so Python can start.
+    if platform.lower() == "windows" and PYTHON_SYSTEM_ROOT.exists():
+        lib_src = PYTHON_SYSTEM_ROOT / "Lib"
+        if lib_src.exists():
+            lib_dest = build_dir / "Lib"
+            try:
+                shutil.copytree(str(lib_src), str(lib_dest), dirs_exist_ok=True)
+                log(f"  Copied Lib/ (Python stdlib)")
+
+                # Update python312._pth so Python finds the stdlib (embed package lacks python312.zip).
+                pth_dest = build_dir / "python312._pth"
+                if pth_dest.exists():
+                    pth_text = pth_dest.read_text(encoding="utf-8")
+                    if "Lib" not in pth_text:
+                        pth_dest.write_text(
+                            "python312.zip\nLib\n.\n",
+                            encoding="utf-8",
+                        )
+                        log(f"  Updated python312._pth to include Lib/")
+            except Exception as e:
+                log(f"  WARNING: could not copy Lib/: {e}")
 
     return out_exe
 
@@ -247,9 +280,9 @@ def build(platform, full_wipe):
 # ---------------------------------------------------------------
 
 REPL = """
-=================================
-AbyssEngine/D.A.T.S build SYSTEM
-=================================
+╔══════════════════════════════════════════╗
+║  AbyssEngine / D.A.T.S build SYSTEM     ║
+╚══════════════════════════════════════════╝
 
 [ 1 ] Build (Full Wipe and Rebuild)
 [ 2 ] Clear build Directory
@@ -257,7 +290,7 @@ AbyssEngine/D.A.T.S build SYSTEM
 [ 4 ] Configuration
 [ 5 ] Exit
 
-"""
+>>> """
 
 def main():
     while True:

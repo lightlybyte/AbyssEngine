@@ -6,9 +6,19 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#include "nuklear.h"
+
 #include "vkrender.h"
 #include "engine.h"
 #include "python.h"
+
+void nk_glfw3_new_frame();
 
 static GLFWwindow* g_window = nullptr;
 static VkRenderer g_renderer;
@@ -72,6 +82,8 @@ int main() {
             lastTime = now;
 
             Engine::Update(g_renderer, dt);
+
+            nk_glfw3_new_frame();
 
             switch (Engine::GetState()) {
                 case GameState::MENU:
