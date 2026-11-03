@@ -18,6 +18,11 @@ enum class MenuScreen {
     CREDITS
 };
 
+// Runtime settings (persisted to settings.json)
+struct Settings {
+    bool vsync = false;
+};
+
 namespace Engine {
 
     void Init(VkRenderer& renderer);
@@ -38,5 +43,11 @@ namespace Engine {
 
     // Set the GLFW window used by the menu layer (call after window creation).
     void SetWindow(GLFWwindow* window);
+
+    // Settings
+    Settings& GetSettings();
+    void LoadSettings(const std::string& path);
+    void SaveSettings(const std::string& path);
+    void ApplyVSync(VkRenderer& renderer);
 
 } // namespace Engine

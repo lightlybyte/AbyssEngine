@@ -68,6 +68,7 @@ struct VkRendererImpl {
 
     struct nk_context* ctx = nullptr;
     std::chrono::high_resolution_clock::time_point startTime;
+    bool vsyncEnabled = false;
 
     void createInstance() {
         VkApplicationInfo app{};
@@ -536,6 +537,11 @@ struct VkRendererImpl {
         }
     }
 
+    void setVSync(bool enabled) {
+        vsyncEnabled = enabled;
+        glfwSwapInterval(enabled ? 1 : 0);
+    }
+
     void drawFrame() {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -672,6 +678,7 @@ void VkRenderer::pollEvents() { impl->pollEvents(); }
 void VkRenderer::waitIdle() { impl->waitIdle(); }
 double VkRenderer::timeSeconds() const { return impl->timeSeconds(); }
 struct nk_context* VkRenderer::ctx() const { return impl->ctx; }
+void VkRenderer::setVSync(bool enabled) { impl->setVSync(enabled); }
 uint32_t VkRenderer::createMesh(const std::vector<VkVertex>& v, const std::vector<uint32_t>& i) { return 0; }
 uint32_t VkRenderer::createTexture(const unsigned char* p, int w, int h) { return 0; }
 void VkRenderer::setDrawItem(uint32_t mesh, uint32_t tex) {}

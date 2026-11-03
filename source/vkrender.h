@@ -40,6 +40,8 @@ public:
 
     struct nk_context* ctx() const;
 
+    void setVSync(bool enabled);
+
 private:
     VkRendererImpl* impl = nullptr;
 };

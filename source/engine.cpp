@@ -1,6 +1,8 @@
 #include "engine.h"
 #include "python.h"
 #include <iostream>
+#include <fstream>
+#include <cstdio>
 #include <GLFW/glfw3.h>
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -14,13 +16,34 @@
 static GameState g_state = GameState::MENU;
 static MenuScreen g_menuScreen = MenuScreen::MAIN;
 static double g_gameTime = 0.0;
+static Settings g_settings;   // runtime settings (loaded from settings.json)
 
 static GLFWwindow* g_window = nullptr;
+
+// Simple JSON helpers for settings (key: value)
+static std::string settingsJsonEscape(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (c == '"') out += "\\\"";
+        else if (c == '\\') out += "\\\\";
+        else out += c;
+    }
+    return out;
+}
+
+static bool parseBool(const std::string& s) {
+    std::string t = s;
+    for (auto& c : t) c = (char)std::tolower((unsigned char)c);
+    return t == "true" || t == "1" || t == "yes" || t == "on";
+}
 
 namespace Engine {
 
 void Init(VkRenderer& renderer) {
     std::cout << "[DATS] Engine initialized." << std::endl;
+
+    // Load settings from build directory
+    LoadSettings("settings.json");
 
     if (!PyEngine::Init()) {
         std::cerr << "[DATS] WARNING: Python runtime failed to initialize."
@@ -90,6 +113,44 @@ bool IsPythonInitialized() {
     return PyEngine::IsInitialized();
 }
 
+// Settings
+Settings& GetSettings() { return g_settings; }
+
+void LoadSettings(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) return;
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    // Minimal JSON parser: look for "vsync": true/false
+    size_t pos = content.find("\"vsync\"");
+    if (pos != std::string::npos) {
+        size_t colon = content.find(':', pos);
+        if (colon != std::string::npos) {
+            std::string val = content.substr(colon + 1);
+            // Trim whitespace
+            size_t start = val.find_first_not_of(" \t\n\r");
+            if (start != std::string::npos) {
+                val = val.substr(start);
+                size_t end = val.find_first_of(" ,\n\r}");
+                if (end != std::string::npos) val = val.substr(0, end);
+                g_settings.vsync = parseBool(val);
+            }
+        }
+    }
+}
+
+void SaveSettings(const std::string& path) {
+    std::ofstream file(path);
+    if (!file.is_open()) return;
+    file << "{\n";
+    file << "  \"vsync\": " << (g_settings.vsync ? "true" : "false") << "\n";
+    file << "}\n";
+}
+
+void ApplyVSync(VkRenderer& renderer) {
+    renderer.setVSync(g_settings.vsync);
+}
+
 } // namespace Engine
 
 // ---------------------------------------------------------------------------
@@ -97,7 +158,8 @@ bool IsPythonInitialized() {
 // ---------------------------------------------------------------------------
 
 static void renderMainMenu(struct nk_context* ctx, int width, int height);
-static void renderSettingsMenu(struct nk_context* ctx, int width, int height);
+static void renderSettingsMenu(struct nk_context* ctx, VkRenderer& renderer,
+                               int width, int height);
 static void renderPythonConsole(struct nk_context* ctx, int width, int height);
 static void renderCreditsMenu(struct nk_context* ctx, int width, int height);
 
@@ -121,7 +183,7 @@ void Engine::RenderMenu(VkRenderer& renderer, struct nk_context* ctx) {
             renderMainMenu(ctx, width, height);
             break;
         case MenuScreen::SETTINGS:
-            renderSettingsMenu(ctx, width, height);
+            renderSettingsMenu(ctx, renderer, width, height);
             break;
         case MenuScreen::PYTHON_CONSOLE:
             renderPythonConsole(ctx, width, height);
@@ -237,7 +299,8 @@ static void renderMainMenu(struct nk_context* ctx, int width, int height) {
     nk_end(ctx);
 }
 
-static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
+static void renderSettingsMenu(struct nk_context* ctx, VkRenderer& renderer,
+                               int width, int height) {
     struct nk_color bg     = nk_rgba(12, 14, 16, 255);
     struct nk_color border = nk_rgba(80, 140, 80, 255);
     struct nk_color text   = nk_rgba(200, 220, 200, 255);
@@ -260,6 +323,28 @@ static void renderSettingsMenu(struct nk_context* ctx, int width, int height) {
         nk_label(ctx, "Vulkan renderer: ACTIVE", NK_TEXT_LEFT);
         nk_label(ctx, "Nuklear UI: ACTIVE", NK_TEXT_LEFT);
         nk_label(ctx, "Python runtime: LOADED", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(ctx, 60, 1);
+
+        // VSync toggle button
+        {
+            char vsyncLabel[64];
+            snprintf(vsyncLabel, sizeof(vsyncLabel), "VSync: %s",
+                     Engine::GetSettings().vsync ? "ON" : "OFF");
+            ctx->style.text.color = Engine::GetSettings().vsync
+                ? nk_rgba(0, 255, 0, 255)
+                : nk_rgba(255, 100, 100, 255);
+            nk_label(ctx, vsyncLabel, NK_TEXT_LEFT);
+
+            nk_layout_row_dynamic(ctx, 40, 1);
+            if (nk_button_label(ctx, Engine::GetSettings().vsync
+                                    ? "Disable VSync"
+                                    : "Enable VSync")) {
+                Engine::GetSettings().vsync = !Engine::GetSettings().vsync;
+                Engine::ApplyVSync(renderer);
+                Engine::SaveSettings("settings.json");
+            }
+        }
 
         nk_layout_row_dynamic(ctx, 60, 1);
         if (nk_button_label(ctx, "BACK")) {
