@@ -3,10 +3,11 @@
 Abyss Engine / D.A.T.S build System
 Root-level. Incremental, multithreaded. MinGW-compatible on Windows.
 
-TUI: greyscale, box-drawn "window" with live status strip.
+TUI: greyscale, box-drawn window, adaptive to terminal width.
 """
 
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -56,14 +57,11 @@ VULKAN_BIN = _first_existing(
 # C++ Config
 # ---------------------------------------------------------------
 
-CXX       = "g++"
-CC        = "gcc"
+CXX = "g++"
+CC  = "gcc"
 
 CXX_FLAGS = [
-    "-std=c++17",
-    "-O2",
-    "-pipe",
-    "-MMD", "-MP",
+    "-std=c++17", "-O2", "-pipe", "-MMD", "-MP",
     "-fdiagnostics-color=always",
     "-I", str(INCLUDE),
     "-I", str(VULKAN_INC),
@@ -93,15 +91,12 @@ ENGINE_CPP = [
 
 def _find_python_root():
     env = os.environ.get("DATS_PYTHON_ROOT")
-    if env:
-        p = Path(env)
-        if p.exists():
-            return p
+    if env and Path(env).exists():
+        return Path(env)
     embed = LIB_DIR / "pythonembed"
     if embed.exists() and (embed / "include").exists():
         return embed
-    candidates = [Path(r"C:\Python312"), Path(r"C:\Program Files\Python312")]
-    for c in candidates:
+    for c in (Path(r"C:\Python312"), Path(r"C:\Program Files\Python312")):
         if c.exists():
             return c
     return None
@@ -122,7 +117,7 @@ else:
 
 PYTHON_EMBED_ROOT = LIB_DIR / "pythonembed"
 
-LIBS_WINDOWS = [
+LIBS_WINDOWS = [x for x in [
     "-L", str(VULKAN_LIB),
     "-lvulkan-1",
     "-L", str(PYTHON_LIB) if PYTHON_LIB else "",
@@ -131,8 +126,7 @@ LIBS_WINDOWS = [
     "-lglfw3",
     "-lgdi32", "-luser32", "-lshell32", "-lole32",
     "-Wl,--as-needed",
-]
-LIBS_WINDOWS = [x for x in LIBS_WINDOWS if x]
+] if x]
 
 LIBS_LINUX = [
     "-lvulkan", "-lglfw",
@@ -141,58 +135,69 @@ LIBS_LINUX = [
 ]
 
 # ---------------------------------------------------------------
-# Greyscale TUI primitives
+# ANSI / greyscale palette
 # ---------------------------------------------------------------
 
-# ANSI greyscale palette (truecolor-ish, but only greys — no chroma).
-G_DIM   = "\x1b[38;2;90;90;90m"     #  ~  #5a5a5a
-G_MID   = "\x1b[38;2;140;140;140m"  #  ~  #8c8c8c
-G_TEXT  = "\x1b[38;2;200;200;200m"  #  ~  #c8c8c8
-G_BRIGHT= "\x1b[38;2;235;235;235m"  #  ~  #ebebeb
-BG_DARK = "\x1b[48;2;18;18;18m"     #  ~  #121212
-BG_PANEL= "\x1b[48;2;28;28;28m"     #  ~  #1c1c1c
-RST     = "\x1b[0m"
-BOLD    = "\x1b[1m"
-DIM     = "\x1b[2m"
+if os.name == "nt":
+    os.system("")  # enable VT processing
 
-# Box drawing — rounded corners look softer than harsh ┌┐└┘.
-BOX_H  = "─"
-BOX_V  = "│"
-BOX_TL = "╭"
-BOX_TR = "╮"
-BOX_BL = "╰"
-BOX_BR = "╯"
-BOX_LT = "├"
-BOX_RT = "┤"
-BOX_TT = "┬"
-BOX_BT = "┴"
-BOX_X  = "┼"
+G_DIM    = "\x1b[38;2;90;90;90m"
+G_MID    = "\x1b[38;2;140;140;140m"
+G_TEXT   = "\x1b[38;2;200;200;200m"
+G_BRIGHT = "\x1b[38;2;235;235;235m"
+BG_DARK  = "\x1b[48;2;18;18;18m"
+BG_PANEL = "\x1b[48;2;28;28;28m"
+RST      = "\x1b[0m"
+BOLD     = "\x1b[1m"
 
-def _term_width(default=78):
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+def _vis_len(s: str) -> int:
+    return len(_ANSI_RE.sub("", s))
+
+def _pad_to(s: str, width: int) -> str:
+    n = _vis_len(s)
+    if n >= width:
+        return s
+    return s + (" " * (width - n))
+
+def _truncate_vis(s: str, width: int) -> str:
+    if _vis_len(s) <= width:
+        return s
+    if width <= 0:
+        return ""
+    out, vis, i, n = [], 0, 0, len(s)
+    while i < n and vis < width - 1:
+        m = _ANSI_RE.match(s, i)
+        if m:
+            out.append(m.group(0))
+            i = m.end()
+            continue
+        out.append(s[i])
+        vis += 1
+        i += 1
+    return "".join(out) + RST + "…"
+
+def _fit(s: str, width: int) -> str:
+    if _vis_len(s) > width:
+        return _pad_to(_truncate_vis(s, width), width)
+    return _pad_to(s, width)
+
+# ---------------------------------------------------------------
+# Terminal helpers
+# ---------------------------------------------------------------
+
+def _term() -> tuple[int, int]:
     try:
-        return shutil.get_terminal_size((default, 24)).columns
+        size = shutil.get_terminal_size((80, 24))
+        cols, rows = size.columns, size.lines
     except Exception:
-        return default
-
-def _term_height(default=24):
-    try:
-        return shutil.get_terminal_size((default, 24)).lines
-    except Exception:
-        return default
-
-def _fit(text, width):
-    """Fit text to width, truncating with … if needed (counts visible chars only)."""
-    # strip ANSI to count
-    import re
-    vis = re.sub(r"\x1b\[[0-9;]*m", "", text)
-    if len(vis) <= width:
-        return text + " " * (width - len(vis))
-    # naive truncate on visible chars, keep ANSI prefix if we can
-    return vis[: max(0, width - 1)] + "…"
+        cols, rows = 80, 24
+    cols = max(60, min(cols, 120))
+    rows = max(20, rows)
+    return cols, rows
 
 def _clear():
-    if os.name == "nt":
-        os.system("")
     sys.stdout.write("\x1b[2J\x1b[H")
     sys.stdout.flush()
 
@@ -204,81 +209,23 @@ def _show_cursor():
     sys.stdout.write("\x1b[?25h")
     sys.stdout.flush()
 
-def _hr(width, ch=BOX_H):
-    return ch * width
-
-def _center(text, width):
-    vis = len(text)
-    if vis >= width:
-        return text
-    pad = width - vis
-    left = pad // 2
-    right = pad - left
-    return " " * left + text + " " * right
-
-def _panel(title, lines, width, pad=1):
-    """
-    Rounded box-drawn panel with an inline title on the top border.
-    Returns a list of rendered lines (no trailing newline).
-    """
-    inner_w = width - 2
-    out = []
-    # Top border with title
-    if title:
-        t = f" {title} "
-        vis_t = len(t)
-        left = (inner_w - vis_t) // 2
-        right = inner_w - vis_t - left
-        out.append(
-            f"{G_MID}{BOX_TL}{BOX_H * left}{RST}"
-            f"{G_BRIGHT}{BOLD}{t}{RST}"
-            f"{G_MID}{BOX_H * right}{BOX_TR}{RST}"
-        )
-    else:
-        out.append(f"{G_MID}{BOX_TL}{BOX_H * inner_w}{BOX_TR}{RST}")
-    # Body
-    for ln in lines:
-        body = _fit(ln, inner_w - pad * 2) if isinstance(ln, str) else ln
-        out.append(
-            f"{G_MID}{BOX_V}{RST}"
-            f"{' ' * pad}{body}{' ' * pad}"
-            f"{G_MID}{BOX_V}{RST}"
-        )
-    # Bottom
-    out.append(f"{G_MID}{BOX_BL}{BOX_H * inner_w}{BOX_BR}{RST}")
-    return out
+def _write_frame(lines: list[str]):
+    sys.stdout.write("\n".join(lines) + "\n")
+    sys.stdout.flush()
 
 # ---------------------------------------------------------------
-# Helpers
+# Build helpers
 # ---------------------------------------------------------------
 
 def log(msg):
-    # Route through a status line instead of raw prints so the TUI stays framed.
-    _status(msg)
-
-_STATUS_LAST = ""
-def _status(msg, kind="info"):
-    global _STATUS_LAST
-    _STATUS_LAST = msg
-    if kind == "ok":
-        prefix = f"{G_BRIGHT}✓{RST}"
-    elif kind == "fail":
-        prefix = f"{G_BRIGHT}✗{RST}"
-    else:
-        prefix = f"{G_DIM}·{RST}"
-    # Print on its own line, dim — keeps scrollback readable if terminal
-    # doesn't support the framed TUI (CI, dumb terminals).
-    print(f"  {prefix} {G_TEXT}{msg}{RST}", flush=True)
+    print(f"  {G_MID}·{RST} {G_TEXT}{msg}{RST}", flush=True)
 
 def run(cmd, cwd=None):
-    result = subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, errors="replace"
-    )
-    if result.returncode != 0:
-        print(result.stdout)
-        print(result.stderr)
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, errors="replace")
+    if r.returncode != 0:
+        print(r.stdout); print(r.stderr)
         raise RuntimeError(f"Command failed: {' '.join(cmd)}")
-    return result
+    return r
 
 def get_libs(platform):
     return LIBS_LINUX if platform.lower() == "linux" else LIBS_WINDOWS
@@ -290,7 +237,7 @@ def get_platform_dir(platform):
     return BUILD_ROOT / platform.capitalize()
 
 # ---------------------------------------------------------------
-# Dependency file parsing
+# Dependency files
 # ---------------------------------------------------------------
 
 def _read_depfile(obj: Path) -> list[Path]:
@@ -298,19 +245,18 @@ def _read_depfile(obj: Path) -> list[Path]:
     if not d.exists():
         return []
     try:
-        text = d.read_text(encoding="utf-8", errors="replace")
+        text = d.read_text(encoding="utf-8", errors="replace").replace("\\\n", " ")
     except OSError:
         return []
-    text = text.replace("\\\n", " ")
     if ":" not in text:
         return []
     _, _, deps = text.partition(":")
-    paths = []
+    out = []
     for raw in deps.split():
         p = Path(raw.strip())
         if p.exists():
-            paths.append(p)
-    return paths
+            out.append(p)
+    return out
 
 def _needs_rebuild(srcp: Path, obj: Path, full_wipe: bool) -> bool:
     if full_wipe or not obj.exists():
@@ -342,15 +288,12 @@ def build_shaders(build_dir, platform):
     log("building shaders with glslc…")
     out_dir = build_dir / "Shaders"
     out_dir.mkdir(parents=True, exist_ok=True)
-
     if not SHADERS.exists():
         log("no Shaders/ folder, skipping")
         return
-
     sources = []
     for ext in ("*.vert", "*.frag"):
         sources += glob.glob(str(SHADERS / ext))
-
     if not sources:
         log("no shaders found")
         return
@@ -367,7 +310,7 @@ def build_shaders(build_dir, platform):
             log("glslc not on PATH, skipping shaders")
             return
 
-    def _compile_one(f):
+    def _one(f):
         src = Path(f)
         out = out_dir / (src.name + ".spv")
         stage = "vert" if src.suffix == ".vert" else "frag"
@@ -375,7 +318,7 @@ def build_shaders(build_dir, platform):
         return src.name
 
     with ThreadPoolExecutor(max_workers=NPROC) as pool:
-        for name in pool.map(_compile_one, sources):
+        for name in pool.map(_one, sources):
             log(f"{name} -> {name}.spv")
 
 # ---------------------------------------------------------------
@@ -384,15 +327,10 @@ def build_shaders(build_dir, platform):
 
 def _compile_one(cmd, srcp: Path, obj: Path):
     r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
-    if r.returncode != 0:
-        return (srcp, r.stdout, r.stderr)
-    return (srcp, None, None)
+    return (srcp, r.stdout if r.returncode else None, r.stderr)
 
-def _build_objects(label, compiler_cmd_builder, files, obj_dir, full_wipe):
-    objs: list[Path] = []
-    keep: set[Path] = set()
-    to_build: list[tuple[Path, Path, list[str]]] = []
-
+def _build_objects(label, cmd_builder, files, obj_dir, full_wipe):
+    objs, keep, to_build = [], set(), []
     for src in files:
         srcp = Path(src)
         if not srcp.exists():
@@ -402,16 +340,15 @@ def _build_objects(label, compiler_cmd_builder, files, obj_dir, full_wipe):
         objs.append(obj)
         if not _needs_rebuild(srcp, obj, full_wipe):
             continue
-        to_build.append((srcp, obj, compiler_cmd_builder(srcp, obj)))
+        to_build.append((srcp, obj, cmd_builder(srcp, obj)))
 
     total = len(objs)
     cached = total - len(to_build)
     log(f"{label}: {cached}/{total} cached, {len(to_build)} rebuilding × {NPROC}")
-
     if not to_build:
         return objs, keep
 
-    failures: list[tuple[Path, str, str]] = []
+    failures = []
     done = 0
     with ThreadPoolExecutor(max_workers=NPROC) as pool:
         futures = [pool.submit(_compile_one, cmd, srcp, obj)
@@ -428,24 +365,21 @@ def _build_objects(label, compiler_cmd_builder, files, obj_dir, full_wipe):
     if failures:
         for srcp, out, err in failures:
             print(f"\n{G_BRIGHT}--- {srcp.name} ---{RST}")
-            print(out)
-            print(err)
+            print(out); print(err)
         raise RuntimeError(f"{len(failures)} file(s) failed to compile")
-
     return objs, keep
 
 def build(platform, full_wipe):
     platform = platform.strip()
     build_dir = get_platform_dir(platform)
     obj_dir   = build_dir / "obj"
-
     t0 = time.time()
+
     log(f"→ {platform}  ·  {'wipe' if full_wipe else 'incremental'}  ·  {NPROC} workers")
 
     if full_wipe and build_dir.exists():
         log(f"wiping {build_dir.name}…")
         shutil.rmtree(build_dir)
-
     build_dir.mkdir(parents=True, exist_ok=True)
     obj_dir.mkdir(parents=True, exist_ok=True)
 
@@ -473,9 +407,7 @@ def build(platform, full_wipe):
     exe_name = get_exe_name(platform)
     out_exe  = build_dir / exe_name
     log(f"linking {exe_name}…")
-
-    all_objs = [str(o) for o in c_objs + cpp_objs]
-    link_cmd = [CXX] + all_objs + ["-o", str(out_exe)] + get_libs(platform)
+    link_cmd = [CXX] + [str(o) for o in c_objs + cpp_objs] + ["-o", str(out_exe)] + get_libs(platform)
     r = subprocess.run(link_cmd, capture_output=True, text=True, errors="replace")
     if r.returncode != 0:
         print(r.stdout); print(r.stderr)
@@ -501,28 +433,22 @@ def _prepare_python_payload(build_dir: Path):
         return
 
     log("preparing Python embeddable payload…")
-
     embed_link = build_dir / "pythonembed"
     try:
-        if embed_link.is_symlink() or embed_link.exists():
-            pass
-        else:
+        if not embed_link.exists():
             if os.name == "nt":
                 r = subprocess.run(
                     ["cmd", "/c", "mklink", "/J", str(embed_link), str(PYTHON_EMBED_ROOT)],
-                    capture_output=True, text=True
-                )
-                if r.returncode == 0:
-                    log("linked pythonembed/ (junction)")
-                else:
+                    capture_output=True, text=True)
+                if r.returncode != 0:
                     raise OSError("mklink /J failed")
+                log("linked pythonembed/ (junction)")
             else:
                 os.symlink(str(PYTHON_EMBED_ROOT), str(embed_link))
                 log("linked pythonembed/ (symlink)")
     except Exception:
         embed_link.mkdir(exist_ok=True)
-        minimal = ["python312.zip", "python312._pth", "python312.dll"]
-        for name in minimal:
+        for name in ("python312.zip", "python312._pth", "python312.dll"):
             src = PYTHON_EMBED_ROOT / name
             if src.exists():
                 shutil.copy2(str(src), str(embed_link / name))
@@ -532,7 +458,7 @@ def _prepare_python_payload(build_dir: Path):
             libs_src = PYTHON_EMBED_ROOT / "Lib"
         if libs_src.exists():
             shutil.copytree(str(libs_src), str(embed_link / "Libs"), dirs_exist_ok=True)
-            log("copied Libs/ (from embed package)")
+            log("copied Libs/")
         sp = PYTHON_EMBED_ROOT / "site-packages"
         if sp.exists():
             shutil.copytree(str(sp), str(embed_link / "site-packages"), dirs_exist_ok=True)
@@ -554,119 +480,118 @@ def _prepare_python_payload(build_dir: Path):
         log("wrote python312._pth")
 
 # ---------------------------------------------------------------
-# TUI — greyscale framed window
+# TUI — adaptive, greyscale, box-drawn
 # ---------------------------------------------------------------
 
 MENU_ITEMS = [
-    ("1", "Build", "Full wipe and rebuild"),
-    ("2", "Clear", "Delete the build directory"),
+    ("1", "Build",       "Full wipe and rebuild"),
+    ("2", "Clear",       "Delete the build directory"),
     ("3", "Incremental", "Rebuild only what changed"),
-    ("4", "Config", "Not yet implemented"),
-    ("5", "Exit", "Close the build system"),
+    ("4", "Config",      "Not yet implemented"),
+    ("5", "Exit",        "Close the build system"),
 ]
 
-def _render_menu(platform_hint: str = "—", last_action: str = "ready"):
-    """
-    Render the main framed menu. Returns the line count so we can clear
-    on re-entry.
-    """
-    W = min(_term_width(), 84)
-    inner = W - 2
+H, V = "─", "│"
+TL, TR, BL, BR = "╭", "╮", "╰", "╯"
+LT, RT = "├", "┤"
 
-    lines: list[str] = []
+def _menu_frame(cols: int, platform_hint: str, last_action: str) -> list[str]:
+    inner = cols - 2
+    out: list[str] = []
 
-    # ── header bar ─────────────────────────────────────────────
-    title   = "Abyss Engine  ·  D.A.T.S"
-    version = "build system  ·  v1"
-    pad     = inner - len(title) - len(version)
-    if pad < 1:
-        pad = 1
-    lines.append(
-        f"{G_MID}{BOX_TL}{BOX_H * inner}{BOX_TR}{RST}"
-    )
-    lines.append(
-        f"{G_MID}{BOX_V}{RST}"
-        f"{BG_DARK}{G_BRIGHT}{BOLD} {title}{RST}"
-        f"{BG_DARK}{' ' * pad}{RST}"
-        f"{BG_DARK}{G_DIM}{version} {RST}"
-        f"{G_MID}{BOX_V}{RST}"
-    )
-    lines.append(
-        f"{G_MID}{BOX_LT}{BOX_H * inner}{BOX_RT}{RST}"
-    )
+    def sep() -> str:
+        return f"{G_DIM}{LT}{H * inner}{RT}{RST}"
 
-    # ── subtitle strip ────────────────────────────────────────
-    sub = "combined-arms mil-sim  ·  no flags, no bad guys, just humans"
-    lines.append(
-        f"{G_MID}{BOX_V}{RST} {G_DIM}{_fit(sub, inner - 2)}{RST} {G_MID}{BOX_V}{RST}"
-    )
-    lines.append(
-        f"{G_MID}{BOX_LT}{BOX_H * inner}{BOX_RT}{RST}"
-    )
+    def top() -> str:
+        return f"{G_DIM}{TL}{H * inner}{TR}{RST}"
+
+    def bottom() -> str:
+        return f"{G_DIM}{BL}{H * inner}{BR}{RST}"
+
+    def row(content: str, bg: str = "") -> str:
+        body = _fit(content, inner)
+        return f"{G_DIM}{V}{RST}{bg}{body}{RST}{G_DIM}{V}{RST}"
+
+    # ── titlebar ──────────────────────────────────────────────
+    left  = f" {G_BRIGHT}{BOLD}Abyss Engine  ·  D.A.T.S{RST}"
+    right = f"{G_DIM}build system  ·  v1 {RST}"
+    lw, rw = _vis_len(left), _vis_len(right)
+    gap = inner - lw - rw
+    if gap < 1:
+        right = ""
+        rw = 0
+        gap = max(1, inner - lw)
+    out.append(top())
+    out.append(f"{G_DIM}{V}{RST}{BG_DARK}{left}{' ' * gap}{right}{RST}{G_DIM}{V}{RST}")
+    out.append(sep())
+
+    # ── subtitle (only if wide enough) ────────────────────────
+    if cols >= 72:
+        sub = "combined-arms mil-sim  ·  no flags, no bad guys, just humans"
+        out.append(row(f" {G_DIM}{sub}", bg=BG_PANEL))
+        out.append(sep())
 
     # ── menu rows ─────────────────────────────────────────────
-    key_col = 3
-    name_col = 14
-    for key, name, desc in MENU_ITEMS:
-        key_cell  = f"{G_BRIGHT}{BOLD}[{key}]{RST}"
-        # pad key cell (visible width = 3)
-        name_cell = _fit(f"{G_TEXT}{name}", name_col)
-        desc_cell = f"{G_DIM}{desc}{RST}"
-        row = (
-            f" {key_cell}  {name_cell}  {desc_cell}"
-        )
-        lines.append(
-            f"{G_MID}{BOX_V}{RST}{BG_PANEL}{_fit(row, inner - 2)}{RST} {G_MID}{BOX_V}{RST}"
-        )
-        # thin divider between rows
-        lines.append(
-            f"{G_MID}{BOX_V}{RST}{BG_PANEL}{G_DIM}{' ' + BOX_H * (inner - 4) + ' '}{RST}{BG_PANEL} {RST}{G_MID}{BOX_V}{RST}"
-        )
-    # drop the last divider for a cleaner look
-    lines.pop()
+    key_w  = 4
+    name_w = 14 if cols >= 70 else 12
+    pad    = 2
+    desc_w = max(8, inner - pad - key_w - 1 - name_w - 1 - pad)
 
-    # ── footer / status ───────────────────────────────────────
-    lines.append(
-        f"{G_MID}{BOX_LT}{BOX_H * inner}{BOX_RT}{RST}"
-    )
-    status_left = f"{G_DIM}platform{RST}  {G_BRIGHT}{platform_hint}{RST}"
-    status_mid  = f"{G_DIM}workers{RST}  {G_BRIGHT}{NPROC}{RST}"
-    status_right= f"{G_DIM}{last_action}{RST}"
-    # simple 3-col layout
-    col_w = inner // 3
-    row = (
-        f" {_fit(status_left,  col_w - 2)}"
-        f" {_fit(status_mid,   col_w - 2)}"
-        f" {_fit(status_right, inner - 2 * col_w)}"
-    )
-    lines.append(
-        f"{G_MID}{BOX_V}{RST}{BG_PANEL}{_fit(row, inner - 2)}{RST}{BG_PANEL} {RST}{G_MID}{BOX_V}{RST}"
-    )
-    lines.append(
-        f"{G_MID}{BOX_BL}{BOX_H * inner}{BOX_BR}{RST}"
-    )
+    for i, (key, name, desc) in enumerate(MENU_ITEMS):
+        key_cell  = _pad_to(f"{G_BRIGHT}{BOLD}[{key}]{RST}", key_w)
+        name_cell = _fit(f"{G_TEXT}{name}", name_w)
+        desc_cell = _truncate_vis(f"{G_DIM}{desc}", desc_w)
+        line = f" {key_cell} {name_cell} {_pad_to(desc_cell, desc_w)} "
+        out.append(row(line, bg=BG_PANEL))
+        if i < len(MENU_ITEMS) - 1 and cols >= 68:
+            out.append(
+                f"{G_DIM}{V}{RST}{BG_PANEL}{' ' + H * (inner - 4) + ' '}{RST}{BG_PANEL} {RST}{G_DIM}{V}{RST}"
+            )
 
-    # ── prompt ────────────────────────────────────────────────
-    lines.append("")
-    lines.append(f"  {G_BRIGHT}❯{RST} {G_TEXT}choice{RST} {G_DIM}[1-5]{RST}")
+    out.append(sep())
 
-    print("\n".join(lines), flush=True)
+    # ── status strip ──────────────────────────────────────────
+    left_v  = f"{G_DIM}platform{RST}  {G_BRIGHT}{platform_hint}{RST}"
+    mid_v   = f"{G_DIM}workers{RST}  {G_BRIGHT}{NPROC}{RST}"
+    right_v = f"{G_DIM}{last_action}{RST}"
 
-def _prompt():
-    """Inline prompt below the menu."""
+    col1 = max(14, inner // 3)
+    col2 = max(12, inner // 3)
+    col3 = inner - col1 - col2 - 2
+    if col3 < 8:
+        col3 = 0
+
+    parts = [_fit(f" {left_v}", col1), _fit(f" {mid_v}", col2)]
+    if col3 > 0:
+        parts.append(_fit(f" {right_v}", col3))
+    out.append(row("".join(parts), bg=BG_PANEL))
+    out.append(bottom())
+
+    return out
+
+def _draw_menu(platform_hint: str, last_action: str):
+    cols, _ = _term()
+    _clear()
+    frame = _menu_frame(cols, platform_hint, last_action)
+    frame.append("")
+    frame.append(f"  {G_BRIGHT}❯{RST} {G_DIM}choice{RST} {G_DIM}[1-5]{RST}")
+    _write_frame(frame)
+
+def _read(prompt: str = "  ❯ ") -> str:
     try:
-        return input(f"  {G_BRIGHT}❯{RST} ").strip()
+        return input(prompt).strip()
     except EOFError:
         return "5"
 
-def _preflight_platform():
-    """Tiny prompt inside the frame for platform selection."""
-    print(flush=True)
-    print(f"  {G_DIM}platform?{RST}  {G_TEXT}1{RST} Windows  {G_DIM}·{RST}  {G_TEXT}2{RST} Linux", flush=True)
-    try:
-        raw = input(f"  {G_BRIGHT}❯{RST} ").strip().lower()
-    except EOFError:
-        return "windows"
+def _platform_prompt(platform_hint: str, last_action: str) -> str:
+    cols, _ = _term()
+    _clear()
+    frame = _menu_frame(cols, platform_hint, last_action)
+    frame.append("")
+    frame.append(f"  {G_DIM}platform?{RST}  {G_TEXT}1{RST} Windows   "
+                 f"{G_DIM}·{RST}  {G_TEXT}2{RST} Linux")
+    _write_frame(frame)
+    raw = _read().lower()
     if raw in ("1", "w", "win", "windows"):
         return "windows"
     if raw in ("2", "l", "lin", "linux"):
@@ -674,17 +599,14 @@ def _preflight_platform():
     return raw or "windows"
 
 def main():
-    _clear()
     _hide_cursor()
-
     platform_hint = "—"
     last_action   = "ready"
 
     try:
         while True:
-            _clear()
-            _render_menu(platform_hint, last_action)
-            choice = _prompt()
+            _draw_menu(platform_hint, last_action)
+            choice = _read()
 
             if choice == "5":
                 _clear()
@@ -692,14 +614,13 @@ def main():
                 break
 
             if choice in ("1", "3"):
-                _clear()
-                platform = _preflight_platform()
+                platform = _platform_prompt(platform_hint, last_action)
                 platform_hint = platform.capitalize()
                 mode = "full wipe" if choice == "1" else "incremental"
                 last_action = f"{mode} → {platform_hint}"
+
                 _clear()
-                _render_menu(platform_hint, last_action)
-                print(f"\n  {G_DIM}────────────────────────────────────────────{RST}")
+                print(f"  {G_DIM}────────────────────────────────────────────{RST}")
                 try:
                     exe = build(platform, full_wipe=(choice == "1"))
                     print(f"\n  {G_BRIGHT}Launching{RST} {exe}…\n")
