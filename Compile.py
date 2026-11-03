@@ -3,7 +3,15 @@
 Abyss Engine / D.A.T.S build System
 Root-level. Incremental, multithreaded. MinGW-compatible on Windows.
 
-TUI: greyscale, box-drawn window, adaptive to terminal width.
+Python version is auto-detected from the header directory. Whatever
+pythonXX.lib / pythonXX.dll / pythonXX.zip is found drives the naming
+everywhere — the build does not hardcode 3.12 or 3.15.
+
+Python.h search order:
+  1. DATS_PYTHON_ROOT env var
+  2. C:\\Users\\lightlybyt\\AppData\\Local\\Python\\pythoncore-3.15-64
+  3. C:\\Python315 / C:\\Program Files\\Python315
+  4. lib/pythonembed
 """
 
 import os
@@ -13,6 +21,7 @@ import shutil
 import subprocess
 import glob
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -89,31 +98,117 @@ ENGINE_CPP = [
     str(SOURCE / "python.cpp"),
 ]
 
-def _find_python_root():
-    env = os.environ.get("DATS_PYTHON_ROOT")
-    if env and Path(env).exists():
-        return Path(env)
-    embed = LIB_DIR / "pythonembed"
-    if embed.exists() and (embed / "include").exists():
-        return embed
-    for c in (Path(r"C:\Python312"), Path(r"C:\Program Files\Python312")):
-        if c.exists():
-            return c
+# ---------------------------------------------------------------
+# Python discovery
+# ---------------------------------------------------------------
+
+SYSTEM_PYTHON_ROOT = Path(
+    r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.15-64"
+)
+
+PY_VER_RE = re.compile(r"^python(\d+)(\d+)\.(?:lib|dll\.a|zip|dll)$")
+
+def _detect_py_version(root: Path) -> str | None:
+    """Return e.g. '315' by looking at libs/libs/dll filenames."""
+    if not root.exists():
+        return None
+    # Check the standard places first
+    for sub in (root / "libs", root / "lib", root / "Libs", root):
+        if not sub.exists():
+            continue
+        for f in sub.iterdir():
+            m = PY_VER_RE.match(f.name)
+            if m:
+                return m.group(1) + m.group(2)
     return None
 
-PYTHON_SYSTEM_ROOT = _find_python_root()
-if PYTHON_SYSTEM_ROOT is not None:
-    PYTHON_INC = PYTHON_SYSTEM_ROOT / "Include"
-    if not PYTHON_INC.exists():
-        PYTHON_INC = PYTHON_SYSTEM_ROOT / "include"
-    PYTHON_LIB = PYTHON_SYSTEM_ROOT / "libs"
-    if not PYTHON_LIB.exists():
-        PYTHON_LIB = PYTHON_SYSTEM_ROOT
-    PYTHON_DLL = PYTHON_SYSTEM_ROOT / "python312.dll"
-    if PYTHON_INC.exists():
-        CXX_FLAGS += ["-I", str(PYTHON_INC)]
+def _probe_python_layout(root: Path):
+    """Return (inc, lib, dll, ver) where ver is like '315'."""
+    if not root or not root.exists():
+        return None, None, None, None
+
+    inc = None
+    for cand in (root / "include", root / "Include", root / "headers"):
+        if (cand / "Python.h").exists():
+            inc = cand
+            break
+    if inc is None and (root / "Python.h").exists():
+        inc = root
+    if inc is None:
+        return None, None, None, None
+
+    ver = _detect_py_version(root)
+    if ver is None:
+        # Fallback: read version out of patchlevel.h if it exists
+        pl = inc / "patchlevel.h"
+        if pl.exists():
+            try:
+                text = pl.read_text(encoding="utf-8", errors="replace")
+                major = re.search(r"#define\s+PY_MAJOR_VERSION\s+(\d+)", text)
+                minor = re.search(r"#define\s+PY_MINOR_VERSION\s+(\d+)", text)
+                if major and minor:
+                    ver = major.group(1) + minor.group(1)
+            except OSError:
+                pass
+    if ver is None:
+        return None, None, None, None
+
+    lib = None
+    lib_names = (f"python{ver}.lib", f"libpython{ver}.a", f"python{ver}.dll.a")
+    for cand in (root / "libs", root / "lib", root / "Libs", root):
+        if not cand.exists():
+            continue
+        if any((cand / n).exists() for n in lib_names):
+            lib = cand
+            break
+
+    dll = None
+    for cand in (root / f"python{ver}.dll", root / "bin" / f"python{ver}.dll"):
+        if cand.exists():
+            dll = cand
+            break
+
+    return inc, lib, dll, ver
+
+def _find_python():
+    candidates: list[Path] = []
+    env = os.environ.get("DATS_PYTHON_ROOT")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(SYSTEM_PYTHON_ROOT)
+    candidates.append(Path(r"C:\Python315"))
+    candidates.append(Path(r"C:\Program Files\Python315"))
+    # Also try any pythoncore-* dir the user might have sitting around
+    appdata = Path.home() / "AppData" / "Local" / "Python"
+    if appdata.exists():
+        for d in appdata.glob("pythoncore-*-64"):
+            if d not in candidates:
+                candidates.append(d)
+    candidates.append(LIB_DIR / "pythonembed")
+    for root in candidates:
+        inc, lib, dll, ver = _probe_python_layout(root)
+        if inc is not None:
+            return root, inc, lib, dll, ver
+    return None, None, None, None, None
+
+PYTHON_ROOT, PYTHON_INC, PYTHON_LIB, PYTHON_DLL, PYTHON_VER = _find_python()
+
+if PYTHON_INC is None:
+    print("[Compile] WARNING: Python.h not found in any known location.")
+    print(f"[Compile]   Expected at {SYSTEM_PYTHON_ROOT / 'include'}")
+    print("[Compile]   Or set DATS_PYTHON_ROOT.")
+    PY_VER = "315"   # placeholder so later code doesn't crash
 else:
-    PYTHON_INC = PYTHON_LIB = PYTHON_DLL = None
+    PY_VER = PYTHON_VER
+    CXX_FLAGS += ["-I", str(PYTHON_INC)]
+    print(f"[Compile] Python headers : {PYTHON_INC}")
+    print(f"[Compile] Python version : 3.{PY_VER[-2:]}" if PY_VER else "[Compile] Python version : unknown")
+    if PYTHON_LIB is not None:
+        print(f"[Compile] Python libs    : {PYTHON_LIB}")
+    else:
+        print(f"[Compile] WARNING: python{PY_VER}.lib not found — link may fail.")
+    if PYTHON_DLL is not None:
+        print(f"[Compile] Python runtime : {PYTHON_DLL}")
 
 PYTHON_EMBED_ROOT = LIB_DIR / "pythonembed"
 
@@ -121,7 +216,7 @@ LIBS_WINDOWS = [x for x in [
     "-L", str(VULKAN_LIB),
     "-lvulkan-1",
     "-L", str(PYTHON_LIB) if PYTHON_LIB else "",
-    "-lpython312",
+    f"-lpython{PY_VER}",
     "-L", str(LIB_DIR),
     "-lglfw3",
     "-lgdi32", "-luser32", "-lshell32", "-lole32",
@@ -139,7 +234,7 @@ LIBS_LINUX = [
 # ---------------------------------------------------------------
 
 if os.name == "nt":
-    os.system("")  # enable VT processing
+    os.system("")
 
 G_DIM    = "\x1b[38;2;90;90;90m"
 G_MID    = "\x1b[38;2;140;140;140m"
@@ -423,61 +518,136 @@ def build(platform, full_wipe):
 # ---------------------------------------------------------------
 # Python payload
 # ---------------------------------------------------------------
+#
+# Flat layout next to DATS.exe:
+#   build/Windows/
+#     DATS.exe
+#     python<ver>.dll
+#     python<ver>._pth        ← "python<ver>.zip\n.\nLibs\nimport site\n"
+#     python<ver>.zip         ← stdlib
+#     Libs/
+#
+# The version tag (e.g. "315") is taken from PY_VER, which was discovered
+# from the Python install. Nothing is hardcoded to 3.12 anymore.
+
+def _zip_name() -> str:
+    return f"python{PY_VER}.zip"
+
+def _dll_name() -> str:
+    return f"python{PY_VER}.dll"
+
+def _pth_name() -> str:
+    return f"python{PY_VER}._pth"
+
+def _validate_embed_package(root: Path) -> list[str]:
+    problems: list[str] = []
+    if not root.exists():
+        return [f"embeddable package missing at {root}"]
+
+    zip_path = root / _zip_name()
+    if not zip_path.exists():
+        problems.append(f"missing {zip_path}")
+    else:
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                names = set(zf.namelist())
+            if "encodings/__init__.py" not in names:
+                problems.append(
+                    f"{_zip_name()} does not contain encodings/ — "
+                    "stdlib zip is incomplete or wrong version"
+                )
+        except zipfile.BadZipFile:
+            problems.append(f"{zip_path} is not a valid zip")
+
+    if not (root / _dll_name()).exists():
+        problems.append(f"missing {root / _dll_name()}")
+
+    return problems
 
 def _prepare_python_payload(build_dir: Path):
     if not PYTHON_EMBED_ROOT.exists():
         log(f"embeddable package missing at {PYTHON_EMBED_ROOT}")
         if PYTHON_DLL and PYTHON_DLL.exists():
-            shutil.copy2(str(PYTHON_DLL), str(build_dir / "python312.dll"))
-            log("copied python312.dll (fallback)")
+            shutil.copy2(str(PYTHON_DLL), str(build_dir / _dll_name()))
+            log(f"copied {_dll_name()} (fallback)")
         return
 
     log("preparing Python embeddable payload…")
-    embed_link = build_dir / "pythonembed"
-    try:
-        if not embed_link.exists():
-            if os.name == "nt":
-                r = subprocess.run(
-                    ["cmd", "/c", "mklink", "/J", str(embed_link), str(PYTHON_EMBED_ROOT)],
-                    capture_output=True, text=True)
-                if r.returncode != 0:
-                    raise OSError("mklink /J failed")
-                log("linked pythonembed/ (junction)")
-            else:
-                os.symlink(str(PYTHON_EMBED_ROOT), str(embed_link))
-                log("linked pythonembed/ (symlink)")
-    except Exception:
-        embed_link.mkdir(exist_ok=True)
-        for name in ("python312.zip", "python312._pth", "python312.dll"):
-            src = PYTHON_EMBED_ROOT / name
-            if src.exists():
-                shutil.copy2(str(src), str(embed_link / name))
-                log(f"copied {name}")
-        libs_src = PYTHON_EMBED_ROOT / "Libs"
-        if not libs_src.exists():
-            libs_src = PYTHON_EMBED_ROOT / "Lib"
-        if libs_src.exists():
-            shutil.copytree(str(libs_src), str(embed_link / "Libs"), dirs_exist_ok=True)
-            log("copied Libs/")
-        sp = PYTHON_EMBED_ROOT / "site-packages"
-        if sp.exists():
-            shutil.copytree(str(sp), str(embed_link / "site-packages"), dirs_exist_ok=True)
-            log("copied site-packages/")
 
-    dll_dest = build_dir / "python312.dll"
+    problems = _validate_embed_package(PYTHON_EMBED_ROOT)
+    if problems:
+        log("embeddable package is broken:")
+        for p in problems:
+            log(f"  • {p}")
+        log("falling back to system Python stdlib copy…")
+        _fallback_copy_stdlib_from_system(build_dir)
+        return
+
+    # Flat copy: everything the embed package ships goes next to the exe.
+    copied = 0
+    for item in PYTHON_EMBED_ROOT.iterdir():
+        dest = build_dir / item.name
+        try:
+            if item.is_dir():
+                shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+            else:
+                shutil.copy2(str(item), str(dest))
+            copied += 1
+        except Exception as e:
+            log(f"  WARNING: could not copy {item.name}: {e}")
+    log(f"copied {copied} item(s) from embed package (flat layout)")
+
+    pth = build_dir / _pth_name()
+    pth.write_text(f"{_zip_name()}\n.\nLibs\nimport site\n", encoding="utf-8")
+    log(f"wrote {_pth_name()} (flat: {_zip_name()} / . / Libs)")
+
+    dll_dest = build_dir / _dll_name()
     if not dll_dest.exists():
-        dll_src = PYTHON_EMBED_ROOT / "python312.dll"
+        dll_src = PYTHON_EMBED_ROOT / _dll_name()
         if dll_src.exists():
             shutil.copy2(str(dll_src), str(dll_dest))
-            log("copied python312.dll (runtime)")
+            log(f"copied {_dll_name()} (runtime)")
         elif PYTHON_DLL and PYTHON_DLL.exists():
             shutil.copy2(str(PYTHON_DLL), str(dll_dest))
-            log("copied python312.dll (fallback)")
+            log(f"copied {_dll_name()} (fallback)")
 
-    pth = build_dir / "python312._pth"
-    if not pth.exists() and (PYTHON_EMBED_ROOT / "python312._pth").exists():
-        pth.write_text("python312.zip\n.\nLibs\nimport site\n", encoding="utf-8")
-        log("wrote python312._pth")
+    missing = []
+    if not (build_dir / _zip_name()).exists():
+        missing.append(_zip_name())
+    if not (build_dir / _pth_name()).exists():
+        missing.append(_pth_name())
+    if not (build_dir / _dll_name()).exists():
+        missing.append(_dll_name())
+    if missing:
+        log(f"WARNING: build dir missing runtime files: {', '.join(missing)}")
+        log("  → DATS.exe will fail to boot Python. Regenerate the embed package:")
+        log(f"    https://www.python.org/ftp/python/3.{PY_VER[-2:]}.0/"
+            f"python-3.{PY_VER[-2:]}.0-embed-amd64.zip")
+    else:
+        log(f"payload OK ({_zip_name()} + {_pth_name()} + {_dll_name()})")
+
+def _fallback_copy_stdlib_from_system(build_dir: Path):
+    if not PYTHON_ROOT:
+        log("  no system Python found either — cannot recover")
+        return
+
+    lib_src = PYTHON_ROOT / "Lib"
+    if not lib_src.exists():
+        log(f"  {lib_src} not found")
+        return
+
+    lib_dest = build_dir / "Lib"
+    log(f"  copying {lib_src} → {lib_dest} (this takes a moment)")
+    shutil.copytree(str(lib_src), str(lib_dest), dirs_exist_ok=True)
+
+    if PYTHON_DLL and PYTHON_DLL.exists():
+        shutil.copy2(str(PYTHON_DLL), str(build_dir / _dll_name()))
+        log(f"  copied {_dll_name()}")
+
+    pth = build_dir / _pth_name()
+    pth.write_text("Lib\n.\nimport site\n", encoding="utf-8")
+    log(f"  wrote {_pth_name()} (Lib/ fallback)")
+    log("  payload OK (fallback via system Lib/)")
 
 # ---------------------------------------------------------------
 # TUI — adaptive, greyscale, box-drawn
@@ -512,7 +682,6 @@ def _menu_frame(cols: int, platform_hint: str, last_action: str) -> list[str]:
         body = _fit(content, inner)
         return f"{G_DIM}{V}{RST}{bg}{body}{RST}{G_DIM}{V}{RST}"
 
-    # ── titlebar ──────────────────────────────────────────────
     left  = f" {G_BRIGHT}{BOLD}Abyss Engine  ·  D.A.T.S{RST}"
     right = f"{G_DIM}build system  ·  v1 {RST}"
     lw, rw = _vis_len(left), _vis_len(right)
@@ -525,13 +694,11 @@ def _menu_frame(cols: int, platform_hint: str, last_action: str) -> list[str]:
     out.append(f"{G_DIM}{V}{RST}{BG_DARK}{left}{' ' * gap}{right}{RST}{G_DIM}{V}{RST}")
     out.append(sep())
 
-    # ── subtitle (only if wide enough) ────────────────────────
     if cols >= 72:
         sub = "combined-arms mil-sim  ·  no flags, no bad guys, just humans"
         out.append(row(f" {G_DIM}{sub}", bg=BG_PANEL))
         out.append(sep())
 
-    # ── menu rows ─────────────────────────────────────────────
     key_w  = 4
     name_w = 14 if cols >= 70 else 12
     pad    = 2
@@ -550,7 +717,6 @@ def _menu_frame(cols: int, platform_hint: str, last_action: str) -> list[str]:
 
     out.append(sep())
 
-    # ── status strip ──────────────────────────────────────────
     left_v  = f"{G_DIM}platform{RST}  {G_BRIGHT}{platform_hint}{RST}"
     mid_v   = f"{G_DIM}workers{RST}  {G_BRIGHT}{NPROC}{RST}"
     right_v = f"{G_DIM}{last_action}{RST}"

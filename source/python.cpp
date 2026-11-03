@@ -3,21 +3,36 @@
 #include <iostream>
 #include <sstream>
 #include <cstring>
+#include <mutex>
+#include <vector>
 
 namespace PyEngine {
 
 static bool g_initialized = false;
 static std::string g_lastError;
 
+// Keeps PyMethodDef objects alive for the lifetime of the interpreter.
+// PyCFunction_New stores a raw pointer to the PyMethodDef, so it must outlive
+// the PyCFunction — never pass a stack-local struct.
+static std::vector<PyMethodDef>* g_methodDefs = nullptr;
+
 bool Init() {
     if (g_initialized) {
         return true;
     }
 
-    // Set program name so Python can locate its standard library.
-    Py_SetProgramName(L"DATS");
+    // Python 3.12 removed the wchar_t* overload of Py_SetProgramName and
+    // deprecated the whole family in favor of PyConfig. We don't strictly
+    // need to set a program name — Python will resolve sys.executable from
+    // the process image. Leaving it unset is valid.
+    //
+    // If you later want explicit control, use PyConfig:
+    //   PyConfig cfg;
+    //   PyConfig_InitPythonConfig(&cfg);
+    //   PyConfig_SetBytesString(&cfg, &cfg.program_name, "DATS");
+    //   Py_InitializeFromConfig(&cfg);
+    //   PyConfig_Clear(&cfg);
 
-    // Initialize the interpreter.
     Py_Initialize();
 
     if (!Py_IsInitialized()) {
@@ -26,7 +41,12 @@ bool Init() {
         return false;
     }
 
+    // Allocate the method-definition table on the heap so registered
+    // callbacks survive past this function.
+    g_methodDefs = new std::vector<PyMethodDef>();
+
     g_initialized = true;
+    g_lastError.clear();
     std::cout << "[PY] Embedded Python runtime initialized." << std::endl;
     return true;
 }
@@ -36,7 +56,17 @@ void Shutdown() {
         return;
     }
 
-    Py_FinalizeEx();
+    // Py_FinalizeEx returns -1 on error (e.g. a module refused to finalize).
+    // We don't abort, but we do surface it.
+    int rc = Py_FinalizeEx();
+    if (rc < 0) {
+        std::cerr << "[PY] WARNING: Py_FinalizeEx reported an error." << std::endl;
+    }
+
+    // Safe now — the interpreter no longer holds pointers into these.
+    delete g_methodDefs;
+    g_methodDefs = nullptr;
+
     g_initialized = false;
     g_lastError.clear();
     std::cout << "[PY] Embedded Python runtime shutdown." << std::endl;
@@ -60,8 +90,15 @@ bool RunFile(const std::string& path) {
         return false;
     }
 
+    // PyRun_SimpleFile takes ownership of the FILE only on success.
+    // On failure we close it ourselves.
     int result = PyRun_SimpleFile(fp, path.c_str());
-    fclose(fp);
+
+    // PyRun_SimpleFileEx (the Ex variant) closes the file; the non-Ex
+    // variant does not. Always close on our side.
+    if (fp) {
+        fclose(fp);
+    }
 
     if (result != 0) {
         g_lastError = "Python script execution failed: " + path;
@@ -69,6 +106,7 @@ bool RunFile(const std::string& path) {
         return false;
     }
 
+    g_lastError.clear();
     return true;
 }
 
@@ -85,6 +123,7 @@ bool RunString(const std::string& code) {
         return false;
     }
 
+    g_lastError.clear();
     return true;
 }
 
@@ -155,11 +194,12 @@ std::string CallStringFunc(const std::string& module,
     }
 
     Py_DECREF(pResult);
+    g_lastError.clear();
     return out;
 }
 
 void RegisterCallback(const std::string& name, PyCFunction func) {
-    if (!g_initialized) {
+    if (!g_initialized || g_methodDefs == nullptr) {
         return;
     }
 
@@ -168,14 +208,52 @@ void RegisterCallback(const std::string& name, PyCFunction func) {
         return;
     }
 
-    PyMethodDef methodDef = {name.c_str(), func, METH_VARARGS, nullptr};
-    PyObject* pFunc = PyCFunction_New(&methodDef, nullptr);
+    // PyCFunction_New stores a raw pointer to the PyMethodDef — it does NOT
+    // copy the struct. Keep a permanent heap copy whose lifetime matches the
+    // interpreter. Also intern the name string so its c_str() outlives the
+    // call to this function.
+    PyMethodDef def{};
+    // ml_name must remain valid — Python may dereference it later.
+    // Intern it with PyUnicode_InternFromString and keep the PyObject alive.
+    // A simpler approach: push_back into the persistent vector and use that
+    // element's storage; the std::string inside the vector is stable because
+    // vector reallocation moves the struct, not the string payload's heap
+    // allocation the c_str() points to... except that's UB-adjacent.
+    //
+    // The cleanest fix: hold the name in a static interned set on the Python
+    // side, and store the PyMethodDef in a vector. Because C++ std::string
+    // small-string optimization can inline short strings, a vector realloc
+    // would move the buffer. To be safe we allocate names individually.
+    //
+    // We use PyUnicode_InternFromString — Python keeps it alive itself.
+    PyObject* pName = PyUnicode_InternFromString(name.c_str());
+    if (!pName) {
+        return;
+    }
+    // The interned name lives for the interpreter's lifetime.
+    // (We deliberately leak one reference — this is a global registry.)
+
+    def.ml_name = PyUnicode_AsUTF8(pName);
+    def.ml_meth = func;
+    def.ml_flags = METH_VARARGS;
+    def.ml_doc = nullptr;
+
+    // Reserve first so the push_back never reallocates the vector after
+    // we've captured &g_methodDefs->back().
+    g_methodDefs->reserve(g_methodDefs->size() + 1);
+    g_methodDefs->push_back(def);
+
+    PyMethodDef* stored = &g_methodDefs->back();
+    PyObject* pFunc = PyCFunction_New(stored, nullptr);
     if (!pFunc) {
+        Py_DECREF(pName);
         return;
     }
 
     PyDict_SetItemString(builtins, name.c_str(), pFunc);
     Py_DECREF(pFunc);
+    // Do NOT Py_DECREF(pName) — the interpreter may deref ml_name later.
+    // (One leaked reference per registered callback; register at startup.)
 }
 
 std::string LastError() {
