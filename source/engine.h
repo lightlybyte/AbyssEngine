@@ -1,16 +1,20 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// engine.h — public engine interface.
+// ---------------------------------------------------------------------------
 
 #include <string>
-#include "vkrender.h"
 
-// Game state
+struct nk_context;
+struct GLFWwindow;
+class VkRenderer;
+
 enum class GameState {
     MENU,
     PLAYING,
     PAUSED
 };
 
-// Menu sub-screen
 enum class MenuScreen {
     MAIN,
     SETTINGS,
@@ -18,36 +22,33 @@ enum class MenuScreen {
     CREDITS
 };
 
-// Runtime settings (persisted to settings.json)
 struct Settings {
-    bool vsync = false;
+    bool vsync = true;
 };
 
 namespace Engine {
-
     void Init(VkRenderer& renderer);
     void Shutdown();
+
+    GameState GetState();
+    void SetState(GameState s);
+
+    MenuScreen GetMenuScreen();
+    void SetMenuScreen(MenuScreen s);
+
     void Update(VkRenderer& renderer, double dt);
     void RenderGame(VkRenderer& renderer);
     void RenderMenu(VkRenderer& renderer, struct nk_context* ctx);
-    GameState GetState();
-    void SetState(GameState state);
 
-    // Menu navigation
-    MenuScreen GetMenuScreen();
-    void SetMenuScreen(MenuScreen screen);
-
-    // Python bridge
     void ExecutePythonCommand(const std::string& command);
     bool IsPythonInitialized();
 
-    // Set the GLFW window used by the menu layer (call after window creation).
-    void SetWindow(GLFWwindow* window);
-
-    // Settings
     Settings& GetSettings();
     void LoadSettings(const std::string& path);
     void SaveSettings(const std::string& path);
     void ApplyVSync(VkRenderer& renderer);
 
-} // namespace Engine
+    void SetWindow(GLFWwindow* window);
+    void RequestQuit();
+    bool IsQuitRequested();
+}

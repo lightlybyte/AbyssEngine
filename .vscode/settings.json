@@ -11,5 +11,6 @@
         "Nuklear",
         "srcp",
         "Swapchain"
-    ]
+    ],
+    "C_Cpp.default.compilerPath": "C:/MinGW/bin/g++.exe"
 }
