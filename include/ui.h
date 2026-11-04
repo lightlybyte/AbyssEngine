@@ -2,12 +2,14 @@
 // ---------------------------------------------------------------------------
 // ui.h — single header for the entire DATS menu system.
 //
-// Pure interface: forward declares nk_context and VkRenderer, includes
-// nothing heavy. Only ui.cpp pulls in nuklear and draws.
+// NOTE: nk_rect is a struct, not a typedef. We forward-declare it with the
+// `struct` keyword and always use `struct nk_rect` in the interface so the
+// header compiles regardless of how the caller's nuklear.h is wrapped.
 // ---------------------------------------------------------------------------
 
 struct nk_context;
 struct GLFWwindow;
+struct nk_rect;           // <-- struct, not typedef
 class VkRenderer;
 
 namespace Ui {
@@ -22,18 +24,13 @@ enum class Screen {
     Count
 };
 
-// Called once per frame from Engine::RenderMenu. Does framing, sidebar,
-// content pane, crossfade — everything.
 void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
             int w, int h, GLFWwindow* window);
 
-// Advances the crossfade. dt in seconds.
 void Update(float dt);
 
-// True if (x, y) lies in the sidebar hit region.
 bool SidebarContains(float x, float y, int w, int h);
 
-// Applied once after nk_init. Safe to call multiple times.
 void ApplyStyle(nk_context* ctx);
 
 } // namespace Ui

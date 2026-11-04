@@ -1,9 +1,19 @@
 // ---------------------------------------------------------------------------
-// ui.cpp — the whole DATS menu system in one file.
+// ui.cpp — the whole DATS menu system.
 //
-// Cold clinical greyscale. Split layout: fixed 240px sidebar + flexible
-// content pane. One 180ms crossfade between screens. No rounding. No hue.
+// CRITICAL:
+//   1. nuklear.h is included FIRST, with the full NK_INCLUDE_* macro set.
+//   2. nk_rect is a struct, not a typedef. Every use is `struct nk_rect`.
+//   3. Only this TU includes nuklear.h. No other TU may.
 // ---------------------------------------------------------------------------
+
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#include <nuklear.h>
 
 #include <ui.h>
 #include <engine.h>
@@ -13,70 +23,44 @@
 #include <cstdio>
 #include <cmath>
 
-// Nuklear first — one place, one set of defines.
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#include <nuklear.h>
-
 namespace Ui {
 
-// ---------------------------------------------------------------------------
-// Palette — eight neutral steps, no hue
-// ---------------------------------------------------------------------------
 namespace G {
-    constexpr nk_color bg        {  8,   8,   8, 255 };
-    constexpr nk_color panel     { 16,  16,  16, 255 };
-    constexpr nk_color row       { 24,  24,  24, 255 };
-    constexpr nk_color row_hover { 36,  36,  36, 255 };
-    constexpr nk_color row_active{ 48,  48,  48, 255 };
-    constexpr nk_color rule      { 42,  42,  42, 255 };
-    constexpr nk_color border    { 74,  74,  74, 255 };
-    constexpr nk_color dim       {122, 122, 122, 255 };
-    constexpr nk_color text      {176, 176, 176, 255 };
-    constexpr nk_color bright    {232, 232, 232, 255 };
-    constexpr nk_color white     {248, 248, 248, 255 };
+    constexpr struct nk_color bg        {  8,   8,   8, 255 };
+    constexpr struct nk_color panel     { 16,  16,  16, 255 };
+    constexpr struct nk_color row       { 24,  24,  24, 255 };
+    constexpr struct nk_color row_hover { 36,  36,  36, 255 };
+    constexpr struct nk_color row_active{ 48,  48,  48, 255 };
+    constexpr struct nk_color rule      { 42,  42,  42, 255 };
+    constexpr struct nk_color border    { 74,  74,  74, 255 };
+    constexpr struct nk_color dim       {122, 122, 122, 255 };
+    constexpr struct nk_color text      {176, 176, 176, 255 };
+    constexpr struct nk_color bright    {232, 232, 232, 255 };
+    constexpr struct nk_color white     {248, 248, 248, 255 };
 }
 
-// ---------------------------------------------------------------------------
-// Geometry
-// ---------------------------------------------------------------------------
 namespace D {
     constexpr float frame_inset   = 12.0f;
     constexpr float frame_border  = 1.0f;
     constexpr float bracket_len   = 14.0f;
     constexpr float bracket_thick = 2.0f;
-
     constexpr float sidebar_w     = 240.0f;
     constexpr float sidebar_pad_x = 24.0f;
     constexpr float sidebar_pad_y = 32.0f;
-
     constexpr float content_pad_x = 48.0f;
     constexpr float content_pad_y = 40.0f;
-
     constexpr float text_small    = 1.0f;
     constexpr float text_head     = 2.0f;
     constexpr float text_hero     = 3.0f;
-
     constexpr float nav_row_h     = 44.0f;
     constexpr float action_row_h  = 56.0f;
     constexpr float row_gap       = 4.0f;
-
     constexpr float transition_s  = 0.18f;
 }
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
 static Screen g_screen     = Screen::Main;
 static float  g_transition = 1.0f;
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 static const char* ScreenLabel(Screen s) {
     switch (s) {
         case Screen::Main:       return "MAIN";
@@ -101,49 +85,50 @@ static const char* ScreenSubtitle(Screen s) {
     }
 }
 
-static void Fill(nk_context* ctx, nk_rect r, nk_color c) {
+static void Fill(struct nk_context* ctx, struct nk_rect r, struct nk_color c) {
     nk_fill_rect(nk_window_get_canvas(ctx), r, 0.0f, c);
 }
 
-static void Rule(nk_context* ctx, nk_color c) {
+static void Rule(struct nk_context* ctx, struct nk_color c) {
     nk_layout_row_dynamic(ctx, 1.0f, 1);
-    nk_rect b = nk_widget_bounds(ctx);
+    struct nk_rect b = nk_widget_bounds(ctx);
     nk_fill_rect(nk_window_get_canvas(ctx), b, 0.0f, c);
 }
 
-static void Label(nk_context* ctx, const char* text, float scale, nk_color c) {
+static void Label(struct nk_context* ctx, const char* text, float scale,
+                  struct nk_color c) {
     nk_layout_row_dynamic(ctx, 13.0f * scale, 1);
-    nk_rect b = nk_widget_bounds(ctx);
+    struct nk_rect b = nk_widget_bounds(ctx);
     nk_draw_text(nk_window_get_canvas(ctx), b, text,
                  (int)std::strlen(text), ctx->style.font,
                  nk_rgba(0,0,0,0), c);
 }
 
-static void Space(nk_context* ctx, float h) {
+static void Space(struct nk_context* ctx, float h) {
     nk_layout_row_dynamic(ctx, h, 1);
     nk_spacing(ctx, 1);
 }
 
-static bool NavRow(nk_context* ctx, const char* label, const char* hint,
-                   bool selected, float height) {
+static bool NavRow(struct nk_context* ctx, const char* label,
+                   const char* hint, bool selected, float height) {
     nk_layout_row_dynamic(ctx, height, 1);
-    nk_rect bounds = nk_widget_bounds(ctx);
+    struct nk_rect bounds = nk_widget_bounds(ctx);
 
-    nk_color bg = selected
+    struct nk_color bg = selected
         ? G::row_active
         : (nk_input_is_mouse_hovering_rect(&ctx->input, bounds)
             ? G::row_hover : G::panel);
     Fill(ctx, bounds, bg);
 
     if (selected) {
-        nk_rect bar = bounds;
+        struct nk_rect bar = bounds;
         bar.w = 2.0f;
         Fill(ctx, bar, G::white);
     }
 
-    const nk_user_font* font = ctx->style.font;
+    const struct nk_user_font* font = ctx->style.font;
 
-    nk_rect label_r = bounds;
+    struct nk_rect label_r = bounds;
     label_r.x += 16.0f;
     label_r.w -= 16.0f;
     nk_draw_text(nk_window_get_canvas(ctx), label_r, label,
@@ -153,7 +138,7 @@ static bool NavRow(nk_context* ctx, const char* label, const char* hint,
     if (hint && hint[0]) {
         float hintw = font->width(font->userdata, font->height, hint,
                                   (int)std::strlen(hint));
-        nk_rect hint_r = bounds;
+        struct nk_rect hint_r = bounds;
         hint_r.x = bounds.x + bounds.w - hintw - 16.0f;
         hint_r.w = hintw;
         nk_draw_text(nk_window_get_canvas(ctx), hint_r, hint,
@@ -165,21 +150,21 @@ static bool NavRow(nk_context* ctx, const char* label, const char* hint,
         && nk_input_is_mouse_hovering_rect(&ctx->input, bounds);
 }
 
-static bool ActionRow(nk_context* ctx, const char* label, const char* hint,
-                      float height) {
+static bool ActionRow(struct nk_context* ctx, const char* label,
+                      const char* hint, float height) {
     nk_layout_row_dynamic(ctx, height, 1);
-    nk_rect bounds = nk_widget_bounds(ctx);
+    struct nk_rect bounds = nk_widget_bounds(ctx);
     bool hover = nk_input_is_mouse_hovering_rect(&ctx->input, bounds);
 
     Fill(ctx, bounds, hover ? G::row_hover : G::row);
 
-    nk_rect top = bounds;
+    struct nk_rect top = bounds;
     top.h = 1.0f;
     Fill(ctx, top, hover ? G::bright : G::rule);
 
-    const nk_user_font* font = ctx->style.font;
+    const struct nk_user_font* font = ctx->style.font;
 
-    nk_rect label_r = bounds;
+    struct nk_rect label_r = bounds;
     label_r.x += 16.0f;
     label_r.w -= 16.0f;
     nk_draw_text(nk_window_get_canvas(ctx), label_r, label,
@@ -189,7 +174,7 @@ static bool ActionRow(nk_context* ctx, const char* label, const char* hint,
     if (hint && hint[0]) {
         float hintw = font->width(font->userdata, font->height, hint,
                                   (int)std::strlen(hint));
-        nk_rect hint_r = bounds;
+        struct nk_rect hint_r = bounds;
         hint_r.x = bounds.x + bounds.w - hintw - 16.0f;
         hint_r.w = hintw;
         nk_draw_text(nk_window_get_canvas(ctx), hint_r, hint,
@@ -200,45 +185,40 @@ static bool ActionRow(nk_context* ctx, const char* label, const char* hint,
         && nk_input_is_mouse_hovering_rect(&ctx->input, bounds);
 }
 
-static void TransitionOverlay(nk_context* ctx, float t) {
+static void TransitionOverlay(struct nk_context* ctx, float t) {
     if (t >= 1.0f) return;
     if (t < 0.0f) t = 0.0f;
     float s = t * t * (3.0f - 2.0f * t);
     int alpha = (int)((1.0f - s) * 255.0f);
     if (alpha <= 0) return;
-    nk_rect content = nk_window_get_content_region(ctx);
+    struct nk_rect content = nk_window_get_content_region(ctx);
     nk_fill_rect(nk_window_get_canvas(ctx), content, 0.0f,
                  nk_rgba(8, 8, 8, (nk_byte)alpha));
 }
 
-static void DrawBrackets(nk_context* ctx, nk_rect frame, nk_color c) {
+static void DrawBrackets(struct nk_context* ctx, struct nk_rect frame,
+                         struct nk_color c) {
     struct nk_command_buffer* canvas = nk_window_get_canvas(ctx);
     const float L = D::bracket_len;
     const float T = D::bracket_thick;
 
     nk_stroke_line(canvas, frame.x, frame.y + L, frame.x, frame.y, T, c);
     nk_stroke_line(canvas, frame.x, frame.y, frame.x + L, frame.y, T, c);
-
     nk_stroke_line(canvas, frame.x + frame.w - L, frame.y,
                    frame.x + frame.w, frame.y, T, c);
     nk_stroke_line(canvas, frame.x + frame.w, frame.y,
                    frame.x + frame.w, frame.y + L, T, c);
-
     nk_stroke_line(canvas, frame.x, frame.y + frame.h - L,
                    frame.x, frame.y + frame.h, T, c);
     nk_stroke_line(canvas, frame.x, frame.y + frame.h,
                    frame.x + L, frame.y + frame.h, T, c);
-
     nk_stroke_line(canvas, frame.x + frame.w - L, frame.y + frame.h,
                    frame.x + frame.w, frame.y + frame.h, T, c);
     nk_stroke_line(canvas, frame.x + frame.w, frame.y + frame.h - L,
                    frame.x + frame.w, frame.y + frame.h, T, c);
 }
 
-// ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
-static bool DrawSidebar(nk_context* ctx, Screen current, Screen* out_next) {
+static bool DrawSidebar(struct nk_context* ctx, Screen current, Screen* out_next) {
     bool changed = false;
 
     Space(ctx, 8.0f);
@@ -267,9 +247,7 @@ static bool DrawSidebar(nk_context* ctx, Screen current, Screen* out_next) {
         Space(ctx, D::row_gap);
     }
 
-    // Push version block down. If content is short we pad with space; if
-    // it's long this is a no-op because the layout cursor is already low.
-    nk_rect content = nk_window_get_content_region(ctx);
+    struct nk_rect content = nk_window_get_content_region(ctx);
     if (content.h > 500.0f) Space(ctx, 60.0f);
 
     Rule(ctx, G::rule);
@@ -285,13 +263,10 @@ static bool DrawSidebar(nk_context* ctx, Screen current, Screen* out_next) {
     return changed;
 }
 
-// ---------------------------------------------------------------------------
-// Content header
-// ---------------------------------------------------------------------------
-static void DrawContentHeader(nk_context* ctx, Screen screen) {
+static void DrawContentHeader(struct nk_context* ctx, Screen screen) {
     nk_layout_row_dynamic(ctx, 16.0f, 1);
-    nk_rect b = nk_widget_bounds(ctx);
-    const nk_user_font* font = ctx->style.font;
+    struct nk_rect b = nk_widget_bounds(ctx);
+    const struct nk_user_font* font = ctx->style.font;
 
     const char* label = ScreenLabel(screen);
     nk_draw_text(nk_window_get_canvas(ctx), b, label,
@@ -300,7 +275,7 @@ static void DrawContentHeader(nk_context* ctx, Screen screen) {
     const char* status = "ONLINE";
     float sw = font->width(font->userdata, font->height, status,
                            (int)std::strlen(status));
-    nk_rect sr = b;
+    struct nk_rect sr = b;
     sr.x = b.x + b.w - sw;
     sr.w = sw;
     nk_draw_text(nk_window_get_canvas(ctx), sr, status,
@@ -313,10 +288,7 @@ static void DrawContentHeader(nk_context* ctx, Screen screen) {
     Space(ctx, 20.0f);
 }
 
-// ---------------------------------------------------------------------------
-// Screens
-// ---------------------------------------------------------------------------
-static Screen Screen_Main(nk_context* ctx) {
+static Screen Screen_Main(struct nk_context* ctx) {
     Label(ctx, "OPERATIONS", D::text_head, G::white);
     Space(ctx, 8.0f);
     Label(ctx, "Select a deployment to begin.", D::text_small, G::dim);
@@ -327,19 +299,15 @@ static Screen Screen_Main(nk_context* ctx) {
     if (ActionRow(ctx, "DEPLOY", "ENTER", D::action_row_h))
         Engine::SetState(GameState::PLAYING);
     Space(ctx, D::row_gap);
-
     if (ActionRow(ctx, "QUICK MATCH", "Q", D::action_row_h))
         Engine::SetState(GameState::PLAYING);
     Space(ctx, D::row_gap);
-
     if (ActionRow(ctx, "TRAINING", "T", D::action_row_h))
         Engine::SetState(GameState::PLAYING);
     Space(ctx, D::row_gap);
-
     if (ActionRow(ctx, "SETTINGS", "S", D::action_row_h))
         next = Screen::Settings;
     Space(ctx, D::row_gap);
-
     if (ActionRow(ctx, "QUIT", "ESC", D::action_row_h))
         Engine::RequestQuit();
 
@@ -351,7 +319,7 @@ static Screen Screen_Main(nk_context* ctx) {
     return next;
 }
 
-static Screen Screen_Operations(nk_context* ctx) {
+static Screen Screen_Operations(struct nk_context* ctx) {
     Label(ctx, "MISSION SELECTION", D::text_head, G::white);
     Space(ctx, 8.0f);
     Label(ctx, "Choose an operation.", D::text_small, G::dim);
@@ -374,7 +342,7 @@ static Screen Screen_Operations(nk_context* ctx) {
     return Screen::Operations;
 }
 
-static Screen Screen_Settings(nk_context* ctx, VkRenderer& renderer) {
+static Screen Screen_Settings(struct nk_context* ctx, VkRenderer& renderer) {
     Label(ctx, "SYSTEM CONFIGURATION", D::text_head, G::white);
     Space(ctx, 8.0f);
     Label(ctx, "Renderer and runtime options.", D::text_small, G::dim);
@@ -390,7 +358,7 @@ static Screen Screen_Settings(nk_context* ctx, VkRenderer& renderer) {
     }
     Space(ctx, D::row_gap);
 
-    if (ActionRow(ctx, "Fullscreen", "F11", D::action_row_h)) { /* stub */ }
+    if (ActionRow(ctx, "Fullscreen", "F11", D::action_row_h)) { }
     Space(ctx, D::row_gap);
 
     if (ActionRow(ctx, "Reset to defaults", "-", D::action_row_h)) {
@@ -410,7 +378,7 @@ static Screen Screen_Settings(nk_context* ctx, VkRenderer& renderer) {
 }
 
 static char s_pyInput[512] = {0};
-static Screen Screen_Console(nk_context* ctx) {
+static Screen Screen_Console(struct nk_context* ctx) {
     Label(ctx, "EMBEDDED PYTHON RUNTIME", D::text_head, G::white);
     Space(ctx, 8.0f);
 
@@ -423,17 +391,17 @@ static Screen Screen_Console(nk_context* ctx) {
     Space(ctx, 20.0f);
 
     nk_layout_row_dynamic(ctx, 200.0f, 1);
-    nk_rect out = nk_widget_bounds(ctx);
+    struct nk_rect out = nk_widget_bounds(ctx);
     Fill(ctx, out, G::panel);
     nk_stroke_rect(nk_window_get_canvas(ctx), out, 0.0f, 1.0f, G::rule);
 
-    const nk_user_font* font = ctx->style.font;
-    nk_rect line = out;
+    const struct nk_user_font* font = ctx->style.font;
+    struct nk_rect line = out;
     line.x += 12.0f;
     line.y += 12.0f;
     line.w -= 24.0f;
     line.h = 13.0f;
-    auto pl = [&](const char* s, nk_color c) {
+    auto pl = [&](const char* s, struct nk_color c) {
         nk_draw_text(nk_window_get_canvas(ctx), line, s,
                      (int)std::strlen(s), font, nk_rgba(0,0,0,0), c);
         line.y += 16.0f;
@@ -458,7 +426,7 @@ static Screen Screen_Console(nk_context* ctx) {
     return Screen::Console;
 }
 
-static Screen Screen_Archive(nk_context* ctx) {
+static Screen Screen_Archive(struct nk_context* ctx) {
     Label(ctx, "MISSION LOG", D::text_head, G::white);
     Space(ctx, 8.0f);
     Label(ctx, "Recorded operations.", D::text_small, G::dim);
@@ -473,28 +441,28 @@ static Screen Screen_Archive(nk_context* ctx) {
     };
     for (const auto& r : rows) {
         nk_layout_row_dynamic(ctx, 40.0f, 1);
-        nk_rect b = nk_widget_bounds(ctx);
-        const nk_user_font* font = ctx->style.font;
-        nk_color c = std::strcmp(r.status, "IN PROGRESS") == 0
+        struct nk_rect b = nk_widget_bounds(ctx);
+        const struct nk_user_font* font = ctx->style.font;
+        struct nk_color c = std::strcmp(r.status, "IN PROGRESS") == 0
                      ? G::bright : G::text;
 
         nk_draw_text(nk_window_get_canvas(ctx), b, r.code,
                      (int)std::strlen(r.code), font, nk_rgba(0,0,0,0), G::dim);
 
-        nk_rect nr = b;
+        struct nk_rect nr = b;
         nr.x += 60.0f;
         nk_draw_text(nk_window_get_canvas(ctx), nr, r.name,
                      (int)std::strlen(r.name), font, nk_rgba(0,0,0,0), c);
 
         float sw = font->width(font->userdata, font->height, r.status,
                                (int)std::strlen(r.status));
-        nk_rect sr = b;
+        struct nk_rect sr = b;
         sr.x = b.x + b.w - sw;
         sr.w = sw;
         nk_draw_text(nk_window_get_canvas(ctx), sr, r.status,
                      (int)std::strlen(r.status), font, nk_rgba(0,0,0,0), G::dim);
 
-        nk_rect rr = b;
+        struct nk_rect rr = b;
         rr.y = b.y + b.h - 1.0f;
         rr.h = 1.0f;
         Fill(ctx, rr, G::rule);
@@ -502,7 +470,7 @@ static Screen Screen_Archive(nk_context* ctx) {
     return Screen::Archive;
 }
 
-static Screen Screen_Credits(nk_context* ctx) {
+static Screen Screen_Credits(struct nk_context* ctx) {
     Label(ctx, "CREDITS", D::text_head, G::white);
     Space(ctx, 8.0f);
     Label(ctx, "Built by Divine.", D::text_small, G::dim);
@@ -510,11 +478,11 @@ static Screen Screen_Credits(nk_context* ctx) {
 
     auto row = [&](const char* k, const char* v) {
         nk_layout_row_dynamic(ctx, 22.0f, 1);
-        nk_rect b = nk_widget_bounds(ctx);
-        const nk_user_font* font = ctx->style.font;
+        struct nk_rect b = nk_widget_bounds(ctx);
+        const struct nk_user_font* font = ctx->style.font;
         nk_draw_text(nk_window_get_canvas(ctx), b, k,
                      (int)std::strlen(k), font, nk_rgba(0,0,0,0), G::dim);
-        nk_rect vr = b;
+        struct nk_rect vr = b;
         vr.x += 200.0f;
         nk_draw_text(nk_window_get_canvas(ctx), vr, v,
                      (int)std::strlen(v), font, nk_rgba(0,0,0,0), G::text);
@@ -535,10 +503,7 @@ static Screen Screen_Credits(nk_context* ctx) {
     return Screen::Credits;
 }
 
-// ---------------------------------------------------------------------------
-// Style setup
-// ---------------------------------------------------------------------------
-void ApplyStyle(nk_context* ctx) {
+void ApplyStyle(struct nk_context* ctx) {
     struct nk_color table[NK_COLOR_COUNT];
     for (int i = 0; i < NK_COLOR_COUNT; ++i) table[i] = G::text;
 
@@ -593,9 +558,6 @@ void ApplyStyle(nk_context* ctx) {
     ctx->style.text.padding          = nk_vec2(0, 0);
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 void Update(float dt) {
     if (g_transition < 1.0f) {
         g_transition += dt / D::transition_s;
@@ -609,55 +571,49 @@ bool SidebarContains(float x, float y, int w, int h) {
     return x >= inset && x <= inset + D::sidebar_w && y >= inset;
 }
 
-void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
+void Render(struct nk_context* ctx, VkRenderer& renderer, Screen screen,
             int w, int h, GLFWwindow* window) {
     if (!ctx) return;
 
-    nk_rect full = nk_rect(0, 0, (float)w, (float)h);
+    struct nk_rect full = nk_rect(0, 0, (float)w, (float)h);
     if (!nk_begin(ctx, "dats_root", full,
                   NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
         nk_end(ctx);
         return;
     }
 
-    // Background
-    nk_rect content = nk_window_get_content_region(ctx);
+    struct nk_rect content = nk_window_get_content_region(ctx);
     Fill(ctx, content, G::bg);
 
-    // Frame
     const float inset = D::frame_inset;
-    nk_rect frame = nk_rect(inset, inset,
-                            (float)w - inset * 2.0f,
-                            (float)h - inset * 2.0f);
+    struct nk_rect frame = nk_rect(inset, inset,
+                                   (float)w - inset * 2.0f,
+                                   (float)h - inset * 2.0f);
     nk_stroke_rect(nk_window_get_canvas(ctx), frame, 0.0f,
                    D::frame_border, G::border);
     DrawBrackets(ctx, frame, G::bright);
 
-    // Sidebar fill
-    nk_rect sidebar = frame;
+    struct nk_rect sidebar = frame;
     sidebar.w = D::sidebar_w;
     Fill(ctx, sidebar, G::panel);
 
-    // Content pane fill
-    nk_rect pane = frame;
+    struct nk_rect pane = frame;
     pane.x += D::sidebar_w;
     pane.w -= D::sidebar_w;
     Fill(ctx, pane, G::panel);
 
-    // Divider
-    nk_rect divider = frame;
+    struct nk_rect divider = frame;
     divider.x += D::sidebar_w;
     divider.w = 1.0f;
     Fill(ctx, divider, G::rule);
 
-    // Interior rects
-    nk_rect sideInner = sidebar;
+    struct nk_rect sideInner = sidebar;
     sideInner.x += D::sidebar_pad_x;
     sideInner.y += D::sidebar_pad_y;
     sideInner.w -= D::sidebar_pad_x * 2.0f;
     sideInner.h -= D::sidebar_pad_y * 2.0f;
 
-    nk_rect contInner = pane;
+    struct nk_rect contInner = pane;
     contInner.x += D::content_pad_x;
     contInner.y += D::content_pad_y;
     contInner.w -= D::content_pad_x * 2.0f;
@@ -665,7 +621,6 @@ void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
 
     Screen next = screen;
 
-    // Content child window
     nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
     if (nk_begin(ctx, "dats_content", contInner, NK_WINDOW_NO_SCROLLBAR)) {
         DrawContentHeader(ctx, screen);
@@ -682,13 +637,12 @@ void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
         }
         if (req != screen) next = req;
 
-        // Footer
         if (contInner.h > 400.0f) Space(ctx, 60.0f);
         Rule(ctx, G::rule);
         Space(ctx, 10.0f);
         nk_layout_row_dynamic(ctx, 16.0f, 1);
-        nk_rect fb = nk_widget_bounds(ctx);
-        const nk_user_font* font = ctx->style.font;
+        struct nk_rect fb = nk_widget_bounds(ctx);
+        const struct nk_user_font* font = ctx->style.font;
         nk_draw_text(nk_window_get_canvas(ctx), fb,
                      "DATS / ABYSS ENGINE",
                      (int)std::strlen("DATS / ABYSS ENGINE"),
@@ -696,7 +650,7 @@ void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
         const char* right = "BUILD 2027.Q1";
         float rw = font->width(font->userdata, font->height, right,
                                (int)std::strlen(right));
-        nk_rect rr = fb;
+        struct nk_rect rr = fb;
         rr.x = fb.x + fb.w - rw;
         rr.w = rw;
         nk_draw_text(nk_window_get_canvas(ctx), rr, right,
@@ -705,7 +659,6 @@ void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
     nk_end(ctx);
     nk_style_pop_color(ctx);
 
-    // Sidebar child window
     nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
     if (nk_begin(ctx, "dats_sidebar", sideInner, NK_WINDOW_NO_SCROLLBAR)) {
         Screen requested = screen;
@@ -714,16 +667,13 @@ void Render(nk_context* ctx, VkRenderer& renderer, Screen screen,
     nk_end(ctx);
     nk_style_pop_color(ctx);
 
-    // Crossfade
     TransitionOverlay(ctx, g_transition);
 
-    // Route screen change
     if (next != screen) {
         g_screen     = next;
         g_transition = 0.0f;
     }
 
-    // Quit request handling
     if (Engine::IsQuitRequested() && window) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
