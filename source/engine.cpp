@@ -1,5 +1,10 @@
 // ---------------------------------------------------------------------------
-// engine.cpp — thin orchestration. Menu rendering lives entirely in ui.cpp.
+// engine.cpp — thin orchestration.
+//
+// CRITICAL: do NOT include <nuklear.h> here. Only ui.cpp includes it.
+// Nuklear requires the exact same NK_INCLUDE_* macros every time it is
+// included; splitting that across TUs causes the types section to be
+// skipped in whichever TU sees the include guard first.
 // ---------------------------------------------------------------------------
 
 #include <engine.h>
@@ -13,15 +18,8 @@
 #include <cctype>
 #include <GLFW/glfw3.h>
 
-// Nuklear is only needed here to pass nk_context* around; ui.cpp owns the
-// style setup and drawing. We include it so nk_context has a complete type.
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#include <nuklear.h>
+// nk_context is forward-declared in engine.h and ui.h. That is enough to
+// hold a pointer and pass it into Ui::Render. Nothing here dereferences it.
 
 static GameState g_state       = GameState::MENU;
 static MenuScreen g_menuScreen = MenuScreen::MAIN;
@@ -148,12 +146,6 @@ void SetWindow(GLFWwindow* window) { g_window = window; }
 
 void RenderMenu(VkRenderer& renderer, struct nk_context* ctx) {
     if (!ctx) return;
-
-    static bool styled = false;
-    if (!styled) {
-        Ui::ApplyStyle(ctx);
-        styled = true;
-    }
 
     int w = 1280, h = 720;
     if (g_window) {
