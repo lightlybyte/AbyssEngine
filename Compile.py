@@ -50,39 +50,10 @@ VULKAN_BIN = _first_existing(
 CXX = "g++"
 CC  = "gcc"
 
-# -Iinclude FIRST so <ui.h> / <engine.h> / <nuklear.h> resolve to the
-# canonical copies under include/, never a shadow in source/.
-CXX_FLAGS = [
-    "-std=c++17", "-O2", "-pipe", "-MMD", "-MP",
-    "-fdiagnostics-color=always",
-    "-I", str(INCLUDE),
-    "-I", str(SOURCE),
-    "-I", str(VULKAN_INC),
-    "-I", str(WREN_SRC / "include"),
-    "-I", str(WREN_SRC / "vm"),
-    "-I", str(ROOT / "openxr" / "include"),
-]
-
-CPP_FILES = []
-
-C_FILES = [
-    str(WREN_SRC / "vm" / f) for f in [
-        "wren_compiler.c", "wren_core.c", "wren_debug.c",
-        "wren_primitive.c", "wren_utils.c", "wren_value.c", "wren_vm.c"
-    ]
-] + [
-    str(WREN_SRC / "optional" / "wren_opt_meta.c"),
-    str(WREN_SRC / "optional" / "wren_opt_random.c"),
-]
-
-# Unified UI: ui.cpp replaces ui_theme.cpp + ui_menu.cpp.
-ENGINE_CPP = [
-    str(SOURCE / "vkrender.cpp"),
-    str(SOURCE / "engine.cpp"),
-    str(SOURCE / "main.cpp"),
-    str(SOURCE / "python.cpp"),
-    str(SOURCE / "ui.cpp"),
-]
+# ---------------------------------------------------------------------------
+# Python discovery — must run BEFORE we assemble CXX_FLAGS so the Python
+# include path can be placed first (see below).
+# ---------------------------------------------------------------------------
 
 SYSTEM_PYTHON_ROOT = Path(
     r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.15-64"
@@ -108,11 +79,11 @@ def _probe_python_layout(root: Path):
 
     inc = None
     for cand in (root / "include", root / "Include", root / "headers"):
-        if (cand / "Python.h").exists():
+        # Require BOTH Python.h and pyconfig.h — a stub will have one but
+        # usually not the other.
+        if (cand / "Python.h").exists() and (cand / "pyconfig.h").exists():
             inc = cand
             break
-    if inc is None and (root / "Python.h").exists():
-        inc = root
     if inc is None:
         return None, None, None, None
 
@@ -174,11 +145,12 @@ def _find_python():
 PYTHON_ROOT, PYTHON_INC, PYTHON_LIB, PYTHON_DLL, PYTHON_VER = _find_python()
 
 if PYTHON_INC is None:
-    print("[Compile] WARNING: Python.h not found in any known location.")
+    print("[Compile] WARNING: Python.h + pyconfig.h not found together.")
+    print(f"[Compile]   Looked at {SYSTEM_PYTHON_ROOT / 'include'}")
+    print("[Compile]   Or set DATS_PYTHON_ROOT.")
     PY_VER = "315"
 else:
     PY_VER = PYTHON_VER
-    CXX_FLAGS += ["-I", str(PYTHON_INC)]
     print(f"[Compile] Python headers : {PYTHON_INC}")
     print(f"[Compile] Python version : 3.{PY_VER[-2:]}")
     if PYTHON_LIB is not None:
@@ -189,6 +161,49 @@ else:
         print(f"[Compile] Python runtime : {PYTHON_DLL}")
 
 PYTHON_EMBED_ROOT = LIB_DIR / "pythonembed"
+
+# ---------------------------------------------------------------------------
+# CXX_FLAGS — Python include path FIRST, project include SECOND.
+#
+# Rationale: any `Python.h` stub sitting in vulkansdk/ or openxr/ include
+# directories must NOT shadow the real CPython header. Once -I points at the
+# real one first, `#include <Python.h>` resolves correctly and every symbol
+# (PyObject, PyMethodDef, Py_Initialize, METH_VARARGS) is defined.
+# ---------------------------------------------------------------------------
+
+CXX_FLAGS = ["-std=c++17", "-O2", "-pipe", "-MMD", "-MP", "-fdiagnostics-color=always"]
+
+if PYTHON_INC is not None:
+    CXX_FLAGS += ["-I", str(PYTHON_INC)]
+
+CXX_FLAGS += [
+    "-I", str(INCLUDE),
+    "-I", str(SOURCE),
+    "-I", str(VULKAN_INC),
+    "-I", str(WREN_SRC / "include"),
+    "-I", str(WREN_SRC / "vm"),
+    "-I", str(ROOT / "openxr" / "include"),
+]
+
+CPP_FILES = []
+
+C_FILES = [
+    str(WREN_SRC / "vm" / f) for f in [
+        "wren_compiler.c", "wren_core.c", "wren_debug.c",
+        "wren_primitive.c", "wren_utils.c", "wren_value.c", "wren_vm.c"
+    ]
+] + [
+    str(WREN_SRC / "optional" / "wren_opt_meta.c"),
+    str(WREN_SRC / "optional" / "wren_opt_random.c"),
+]
+
+ENGINE_CPP = [
+    str(SOURCE / "vkrender.cpp"),
+    str(SOURCE / "engine.cpp"),
+    str(SOURCE / "main.cpp"),
+    str(SOURCE / "python.cpp"),
+    str(SOURCE / "ui.cpp"),
+]
 
 def _preflight_shadow_check():
     if not SOURCE.exists() or not INCLUDE.exists():
@@ -203,9 +218,7 @@ def _preflight_shadow_check():
         print("[Compile] WARNING: source/ headers shadow include/ headers:")
         for src, inc in shadows:
             print(f"[Compile]   {src}  shadows  {inc}")
-        print("[Compile]   Delete the source/ copy. Include order now puts")
-        print("[Compile]   include/ first, so the shadow is harmless, but")
-        print("[Compile]   deleting it removes ambiguity for future headers.")
+        print("[Compile]   Delete the source/ copy.")
         print()
 
 _preflight_shadow_check()
@@ -241,36 +254,23 @@ BOLD     = "\x1b[1m"
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
-def _vis_len(s):
-    return len(_ANSI_RE.sub("", s))
-
-def _pad_to(s, width):
+def _vis_len(s): return len(_ANSI_RE.sub("", s))
+def _pad_to(s, w):
     n = _vis_len(s)
-    if n >= width:
-        return s
-    return s + (" " * (width - n))
-
-def _truncate_vis(s, width):
-    if _vis_len(s) <= width:
-        return s
-    if width <= 0:
-        return ""
+    return s + (" " * (w - n)) if n < w else s
+def _truncate_vis(s, w):
+    if _vis_len(s) <= w: return s
+    if w <= 0: return ""
     out, vis, i, n = [], 0, 0, len(s)
-    while i < n and vis < width - 1:
+    while i < n and vis < w - 1:
         m = _ANSI_RE.match(s, i)
         if m:
-            out.append(m.group(0))
-            i = m.end()
-            continue
-        out.append(s[i])
-        vis += 1
-        i += 1
+            out.append(m.group(0)); i = m.end(); continue
+        out.append(s[i]); vis += 1; i += 1
     return "".join(out) + RST + "…"
-
-def _fit(s, width):
-    if _vis_len(s) > width:
-        return _pad_to(_truncate_vis(s, width), width)
-    return _pad_to(s, width)
+def _fit(s, w):
+    if _vis_len(s) > w: return _pad_to(_truncate_vis(s, w), w)
+    return _pad_to(s, w)
 
 def _term():
     try:
@@ -278,25 +278,12 @@ def _term():
         cols, rows = size.columns, size.lines
     except Exception:
         cols, rows = 80, 24
-    cols = max(60, min(cols, 120))
-    rows = max(20, rows)
-    return cols, rows
+    return max(60, min(cols, 120)), max(20, rows)
 
-def _clear():
-    sys.stdout.write("\x1b[2J\x1b[H")
-    sys.stdout.flush()
-
-def _hide_cursor():
-    sys.stdout.write("\x1b[?25l")
-    sys.stdout.flush()
-
-def _show_cursor():
-    sys.stdout.write("\x1b[?25h")
-    sys.stdout.flush()
-
-def _write_frame(lines):
-    sys.stdout.write("\n".join(lines) + "\n")
-    sys.stdout.flush()
+def _clear(): sys.stdout.write("\x1b[2J\x1b[H"); sys.stdout.flush()
+def _hide_cursor(): sys.stdout.write("\x1b[?25l"); sys.stdout.flush()
+def _show_cursor(): sys.stdout.write("\x1b[?25h"); sys.stdout.flush()
+def _write_frame(lines): sys.stdout.write("\n".join(lines) + "\n"); sys.stdout.flush()
 
 def log(msg):
     print(f"  {G_MID}·{RST} {G_TEXT}{msg}{RST}", flush=True)
@@ -319,31 +306,25 @@ def get_platform_dir(platform):
 
 def _read_depfile(obj):
     d = obj.with_suffix(".d")
-    if not d.exists():
-        return []
+    if not d.exists(): return []
     try:
         text = d.read_text(encoding="utf-8", errors="replace").replace("\\\n", " ")
     except OSError:
         return []
-    if ":" not in text:
-        return []
+    if ":" not in text: return []
     _, _, deps = text.partition(":")
     out = []
     for raw in deps.split():
         p = Path(raw.strip())
-        if p.exists():
-            out.append(p)
+        if p.exists(): out.append(p)
     return out
 
 def _needs_rebuild(srcp, obj, full_wipe):
-    if full_wipe or not obj.exists():
-        return True
-    if obj.stat().st_mtime < srcp.stat().st_mtime:
-        return True
+    if full_wipe or not obj.exists(): return True
+    if obj.stat().st_mtime < srcp.stat().st_mtime: return True
     for dep in _read_depfile(obj):
         try:
-            if dep.stat().st_mtime > obj.stat().st_mtime:
-                return True
+            if dep.stat().st_mtime > obj.stat().st_mtime: return True
         except OSError:
             return True
     return False
@@ -352,8 +333,7 @@ def _prune_obj_dir(obj_dir, keep):
     for o in obj_dir.glob("*.o"):
         if o not in keep:
             try:
-                o.unlink()
-                log(f"pruned stale {o.name}")
+                o.unlink(); log(f"pruned stale {o.name}")
             except OSError:
                 pass
 
@@ -362,34 +342,27 @@ def build_shaders(build_dir, platform):
     out_dir = build_dir / "Shaders"
     out_dir.mkdir(parents=True, exist_ok=True)
     if not SHADERS.exists():
-        log("no Shaders/ folder, skipping")
-        return
+        log("no Shaders/ folder, skipping"); return
     sources = []
     for ext in ("*.vert", "*.frag"):
         sources += glob.glob(str(SHADERS / ext))
     if not sources:
-        log("no shaders found")
-        return
-
+        log("no shaders found"); return
     if platform.lower() == "windows":
         glslc = VULKAN_BIN / "glslc.exe"
         if not glslc.exists():
-            log(f"glslc.exe not found in {VULKAN_BIN}, skipping shaders")
-            return
+            log(f"glslc.exe not found in {VULKAN_BIN}, skipping"); return
         glslc_cmd = str(glslc)
     else:
         glslc_cmd = shutil.which("glslc")
         if not glslc_cmd:
-            log("glslc not on PATH, skipping shaders")
-            return
-
+            log("glslc not on PATH, skipping"); return
     def _one(f):
         src = Path(f)
         out = out_dir / (src.name + ".spv")
         stage = "vert" if src.suffix == ".vert" else "frag"
         run([glslc_cmd, f"-fshader-stage={stage}", str(src), "-o", str(out)])
         return src.name
-
     with ThreadPoolExecutor(max_workers=NPROC) as pool:
         for name in pool.map(_one, sources):
             log(f"{name} -> {name}.spv")
@@ -405,23 +378,16 @@ def _build_objects(label, cmd_builder, files, obj_dir, full_wipe):
         if not srcp.exists():
             raise RuntimeError(f"Missing source: {srcp}")
         obj = obj_dir / (srcp.name + ".o")
-        keep.add(obj)
-        objs.append(obj)
-        if not _needs_rebuild(srcp, obj, full_wipe):
-            continue
+        keep.add(obj); objs.append(obj)
+        if not _needs_rebuild(srcp, obj, full_wipe): continue
         to_build.append((srcp, obj, cmd_builder(srcp, obj)))
-
     total = len(objs)
     cached = total - len(to_build)
     log(f"{label}: {cached}/{total} cached, {len(to_build)} rebuilding × {NPROC}")
-    if not to_build:
-        return objs, keep
-
-    failures = []
-    done = 0
+    if not to_build: return objs, keep
+    failures, done = [], 0
     with ThreadPoolExecutor(max_workers=NPROC) as pool:
-        futures = [pool.submit(_compile_one, cmd, srcp, obj)
-                   for (srcp, obj, cmd) in to_build]
+        futures = [pool.submit(_compile_one, cmd, srcp, obj) for (srcp, obj, cmd) in to_build]
         for fut in as_completed(futures):
             srcp, out, err = fut.result()
             done += 1
@@ -430,7 +396,6 @@ def _build_objects(label, cmd_builder, files, obj_dir, full_wipe):
                 log(f"{label} FAIL [{done}/{len(to_build)}]: {srcp.name}")
             else:
                 log(f"{label} OK   [{done}/{len(to_build)}]: {srcp.name}")
-
     if failures:
         for srcp, out, err in failures:
             print(f"\n{G_BRIGHT}--- {srcp.name} ---{RST}")
@@ -443,12 +408,9 @@ def build(platform, full_wipe):
     build_dir = get_platform_dir(platform)
     obj_dir = build_dir / "obj"
     t0 = time.time()
-
     log(f"→ {platform}  ·  {'wipe' if full_wipe else 'incremental'}  ·  {NPROC} workers")
-
     if full_wipe and build_dir.exists():
-        log(f"wiping {build_dir.name}…")
-        shutil.rmtree(build_dir)
+        log(f"wiping {build_dir.name}…"); shutil.rmtree(build_dir)
     build_dir.mkdir(parents=True, exist_ok=True)
     obj_dir.mkdir(parents=True, exist_ok=True)
 
@@ -460,8 +422,7 @@ def build(platform, full_wipe):
             "-I", str(WREN_SRC / "include"),
             "-I", str(WREN_SRC / "vm"),
             "-I", str(WREN_SRC / "optional"),
-            "-MMD", "-MP",
-            "-o", str(obj),
+            "-MMD", "-MP", "-o", str(obj),
         ]
     c_objs, c_keep = _build_objects("C", c_cmd, C_FILES, obj_dir, full_wipe)
 
@@ -476,13 +437,11 @@ def build(platform, full_wipe):
     exe_name = get_exe_name(platform)
     out_exe = build_dir / exe_name
     log(f"linking {exe_name}…")
-    link_cmd = ([CXX] + [str(o) for o in c_objs + cpp_objs]
-                + ["-o", str(out_exe)] + get_libs(platform))
+    link_cmd = [CXX] + [str(o) for o in c_objs + cpp_objs] + ["-o", str(out_exe)] + get_libs(platform)
     r = subprocess.run(link_cmd, capture_output=True, text=True, errors="replace")
     if r.returncode != 0:
         print(r.stdout); print(r.stderr)
         raise RuntimeError("link failed")
-
     log(f"build OK → {out_exe}  ({time.time() - t0:.1f}s)")
 
     if platform.lower() == "windows":
@@ -520,17 +479,14 @@ def _prepare_python_payload(build_dir):
             shutil.copy2(str(PYTHON_DLL), str(build_dir / _dll_name()))
             log(f"copied {_dll_name()} (fallback)")
         return
-
     log("preparing Python embeddable payload…")
     problems = _validate_embed_package(PYTHON_EMBED_ROOT)
     if problems:
         log("embeddable package is broken:")
-        for p in problems:
-            log(f"  • {p}")
+        for p in problems: log(f"  • {p}")
         log("falling back to system Python stdlib copy…")
         _fallback_copy_stdlib_from_system(build_dir)
         return
-
     copied = 0
     for item in PYTHON_EMBED_ROOT.iterdir():
         dest = build_dir / item.name
@@ -543,11 +499,9 @@ def _prepare_python_payload(build_dir):
         except Exception as e:
             log(f"  WARNING: could not copy {item.name}: {e}")
     log(f"copied {copied} item(s) from embed package (flat layout)")
-
     (build_dir / _pth_name()).write_text(
         f"{_zip_name()}\n.\nLibs\nimport site\n", encoding="utf-8")
     log(f"wrote {_pth_name()}")
-
     dll_dest = build_dir / _dll_name()
     if not dll_dest.exists():
         dll_src = PYTHON_EMBED_ROOT / _dll_name()
@@ -557,13 +511,11 @@ def _prepare_python_payload(build_dir):
         elif PYTHON_DLL and PYTHON_DLL.exists():
             shutil.copy2(str(PYTHON_DLL), str(dll_dest))
             log(f"copied {_dll_name()} (fallback)")
-
     log(f"payload OK ({_zip_name()} + {_pth_name()} + {_dll_name()})")
 
 def _fallback_copy_stdlib_from_system(build_dir):
     if not PYTHON_ROOT:
-        log("  no system Python found either — cannot recover")
-        return
+        log("  no system Python found either — cannot recover"); return
     lib_src = PYTHON_ROOT / "Lib"
     if not lib_src.exists():
         log(f"  {lib_src} not found"); return
@@ -575,7 +527,6 @@ def _fallback_copy_stdlib_from_system(build_dir):
         log(f"  copied {_dll_name()}")
     (build_dir / _pth_name()).write_text("Lib\n.\nimport site\n", encoding="utf-8")
     log(f"  wrote {_pth_name()} (Lib/ fallback)")
-    log("  payload OK (fallback via system Lib/)")
 
 MENU_ITEMS = [
     ("1", "Build",       "Full wipe and rebuild"),
@@ -598,7 +549,6 @@ def _menu_frame(cols, platform_hint, last_action):
     def row(content, bg=""):
         body = _fit(content, inner)
         return f"{G_DIM}{V}{RST}{bg}{body}{RST}{G_DIM}{V}{RST}"
-
     left = f" {G_BRIGHT}{BOLD}Abyss Engine  ·  D.A.T.S{RST}"
     right = f"{G_DIM}build system  ·  v1 {RST}"
     lw, rw = _vis_len(left), _vis_len(right)
@@ -608,17 +558,14 @@ def _menu_frame(cols, platform_hint, last_action):
     out.append(top())
     out.append(f"{G_DIM}{V}{RST}{BG_DARK}{left}{' ' * gap}{right}{RST}{G_DIM}{V}{RST}")
     out.append(sep())
-
     if cols >= 72:
         sub = "combined-arms mil-sim  ·  no flags, no bad guys, just humans"
         out.append(row(f" {G_DIM}{sub}", bg=BG_PANEL))
         out.append(sep())
-
     key_w = 4
     name_w = 14 if cols >= 70 else 12
     pad = 2
     desc_w = max(8, inner - pad - key_w - 1 - name_w - 1 - pad)
-
     for i, (key, name, desc) in enumerate(MENU_ITEMS):
         key_cell = _pad_to(f"{G_BRIGHT}{BOLD}[{key}]{RST}", key_w)
         name_cell = _fit(f"{G_TEXT}{name}", name_w)
@@ -626,10 +573,7 @@ def _menu_frame(cols, platform_hint, last_action):
         line = f" {key_cell} {name_cell} {_pad_to(desc_cell, desc_w)} "
         out.append(row(line, bg=BG_PANEL))
         if i < len(MENU_ITEMS) - 1 and cols >= 68:
-            out.append(
-                f"{G_DIM}{V}{RST}{BG_PANEL}{' ' + H * (inner - 4) + ' '}{RST}{BG_PANEL} {RST}{G_DIM}{V}{RST}"
-            )
-
+            out.append(f"{G_DIM}{V}{RST}{BG_PANEL}{' ' + H * (inner - 4) + ' '}{RST}{BG_PANEL} {RST}{G_DIM}{V}{RST}")
     out.append(sep())
     left_v = f"{G_DIM}platform{RST}  {G_BRIGHT}{platform_hint}{RST}"
     mid_v = f"{G_DIM}workers{RST}  {G_BRIGHT}{NPROC}{RST}"
@@ -637,11 +581,9 @@ def _menu_frame(cols, platform_hint, last_action):
     col1 = max(14, inner // 3)
     col2 = max(12, inner // 3)
     col3 = inner - col1 - col2 - 2
-    if col3 < 8:
-        col3 = 0
+    if col3 < 8: col3 = 0
     parts = [_fit(f" {left_v}", col1), _fit(f" {mid_v}", col2)]
-    if col3 > 0:
-        parts.append(_fit(f" {right_v}", col3))
+    if col3 > 0: parts.append(_fit(f" {right_v}", col3))
     out.append(row("".join(parts), bg=BG_PANEL))
     out.append(bottom())
     return out
@@ -665,14 +607,11 @@ def _platform_prompt(platform_hint, last_action):
     _clear()
     frame = _menu_frame(cols, platform_hint, last_action)
     frame.append("")
-    frame.append(f"  {G_DIM}platform?{RST}  {G_TEXT}1{RST} Windows   "
-                 f"{G_DIM}·{RST}  {G_TEXT}2{RST} Linux")
+    frame.append(f"  {G_DIM}platform?{RST}  {G_TEXT}1{RST} Windows   {G_DIM}·{RST}  {G_TEXT}2{RST} Linux")
     _write_frame(frame)
     raw = _read().lower()
-    if raw in ("1", "w", "win", "windows"):
-        return "windows"
-    if raw in ("2", "l", "lin", "linux"):
-        return "linux"
+    if raw in ("1", "w", "win", "windows"): return "windows"
+    if raw in ("2", "l", "lin", "linux"): return "linux"
     return raw or "windows"
 
 def main():

@@ -2,45 +2,54 @@
 // ---------------------------------------------------------------------------
 // python.h — Python embedding interface.
 //
-// <Python.h> MUST be the first include in any TU that touches the Python C
-// API. The Python docs are explicit: pyconfig.h overrides feature-test
-// macros, and headers that reference PyObject* before Python.h is seen
-// produce the exact cascade the build log shows ('PyObject has not been
-// declared', 'PyCFunction has not been declared').
-//
-// Including <Python.h> here means every TU that includes <python.h> gets the
-// full Python API in scope automatically, in the right order.
+// This header VERIFIES that <Python.h> actually defined the API before we
+// declare anything that uses it. If Python.h is missing or half-included,
+// the static_assert at the bottom of the includes produces a readable
+// diagnostic instead of a cascade of "'PyObject' has not been declared".
 // ---------------------------------------------------------------------------
-
-// CPython's headers are C. On MSVC and on Linux's CPython ABI, the headers
-// already carry their own extern "C" wrappers, but we open ours explicitly
-// so the C++ lambdas we pass as PyCFunction match the C calling convention.
-extern "C" {
-#include <Python.h>
-}
 
 #include <string>
 
+// Pull in the full Python C API. No extern "C" here: CPython's own headers
+// already carry the correct linkage macros (PyAPI_FUNC etc.), and wrapping
+// them again in extern "C" is what broke the previous attempt — some of
+// Python.h's own nested extern "C" blocks don't survive a second wrap.
+#include <Python.h>
+
+// If the include above didn't define PyObject, this static_assert fires with
+// a single clear message. C++11 static_assert is constexpr, so it can't be
+// built from a runtime expression — we do it with a template trick.
+namespace PyEngine_detail {
+    template <typename T> struct dependent_false { static const bool value = false; };
+}
+
+// ---- Sanity: if any of these are undefined we stop here with one message ----
+#ifndef Py_PYTHON_H
+#  error "Python.h did not define Py_PYTHON_H — the header guard was not entered. Check that the include path resolves to a real CPython header."
+#endif
+
+// PyCFunction and PyObject are both typedef'd by Python.h:
+//   typedef struct _object PyObject;
+//   typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+// If they aren't defined, the include didn't take.
+#if !defined(METH_VARARGS)
+#  error "Python.h did not define METH_VARARGS — the method-def table section of the header did not compile. Check for a conflicting pyconfig.h."
+#endif
+
 namespace PyEngine {
 
-// Lifecycle
 bool Init();
 void Shutdown();
 
-// Execution
 bool RunFile(const std::string& path);
 bool RunString(const std::string& code);
 
-// Module / function calls
 std::string CallStringFunc(const std::string& module,
                            const std::string& name,
                            const std::string& arg);
 
-// Callback registration — PyCFunction is a C function pointer type provided
-// by <Python.h>. Any TU including this header will see it.
 void RegisterCallback(const std::string& name, PyCFunction func);
 
-// Diagnostics
 std::string LastError();
 bool IsInitialized();
 
