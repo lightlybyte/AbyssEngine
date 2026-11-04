@@ -1,14 +1,16 @@
 // ---------------------------------------------------------------------------
 // engine.cpp — thin orchestration.
 //
-// CRITICAL: do NOT include <nuklear.h> here. Only ui.cpp includes it.
-// Nuklear requires the exact same NK_INCLUDE_* macros every time it is
-// included; splitting that across TUs causes the types section to be
-// skipped in whichever TU sees the include guard first.
+// Python.h MUST be the first include in any TU that uses the Python C API.
+// The Python docs are explicit about this: pyconfig.h overrides feature-test
+// macros, and any header that touches PyObject before Python.h sees a
+// half-declared API.
+//
+// Do NOT include <nuklear.h> here. Only ui.cpp includes it.
 // ---------------------------------------------------------------------------
 
+#include <python.h>          // MUST be first
 #include <engine.h>
-#include <python.h>
 #include <ui.h>
 #include <vkrender.h>
 
@@ -18,8 +20,7 @@
 #include <cctype>
 #include <GLFW/glfw3.h>
 
-// nk_context is forward-declared in engine.h and ui.h. That is enough to
-// hold a pointer and pass it into Ui::Render. Nothing here dereferences it.
+// nk_context is forward-declared in engine.h and ui.h. That's enough.
 
 static GameState g_state       = GameState::MENU;
 static MenuScreen g_menuScreen = MenuScreen::MAIN;
