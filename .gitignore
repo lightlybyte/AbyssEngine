@@ -9,18 +9,7 @@
 /builds/
 /Build/
 /Builds/
-*.exe
-*.dll
-*.so
-*.dylib
-*.lib
-*.a
-*.o
-*.obj
-*.pdb
-*.ilk
-*.exp
-*.map
+
 
 # ------------------------------------------
 # Shaders (Compiled Output)
@@ -39,9 +28,6 @@ Makefile
 *.make
 compile_commands.json
 __pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
 .pytest_cache/
 
 # ------------------------------------------

@@ -1,15 +1,17 @@
 // ---------------------------------------------------------------------------
 // engine.cpp — thin orchestration.
 //
-// Python.h MUST be the first include in any TU that uses the Python C API.
-// The Python docs are explicit about this: pyconfig.h overrides feature-test
-// macros, and any header that touches PyObject before Python.h sees a
-// half-declared API.
+// NOTE on includes:
+//   Our wrapper is `source/pyengine.h` (renamed from python.h). The old name
+//   collided with CPython's `Python.h` on Windows' case-insensitive filesystem
+//   — `#include <python.h>` would resolve to CPython's header via -I, so
+//   `namespace PyEngine` was never declared.
 //
-// Do NOT include <nuklear.h> here. Only ui.cpp includes it.
+//   `PyEngine` is the wrapper namespace. `pyengine.h` includes <Python.h>
+//   and declares it.
 // ---------------------------------------------------------------------------
 
-#include <python.h>          // MUST be first
+#include "pyengine.h"        // our wrapper, not CPython's Python.h
 #include <engine.h>
 #include <ui.h>
 #include <vkrender.h>
@@ -19,8 +21,6 @@
 #include <cstdio>
 #include <cctype>
 #include <GLFW/glfw3.h>
-
-// nk_context is forward-declared in engine.h and ui.h. That's enough.
 
 static GameState g_state       = GameState::MENU;
 static MenuScreen g_menuScreen = MenuScreen::MAIN;
