@@ -21,6 +21,8 @@ enum class Screen {
     Console,
     Archive,
     Credits,
+    Login,
+    Profile,
     Count
 };
 

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DATS Auth{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; }
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+        a { color: #e0e0e0; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 700px; margin: 0 auto; padding: 2rem 1rem; }
+        .card {
+            background: #121212;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        h1, h2 {
+            color: #e0e0e0;
+            margin-bottom: 1rem;
+            letter-spacing: 0.5px;
+        }
+        h1 { font-size: 1.75rem; border-bottom: 1px solid #222; padding-bottom: 0.5rem; }
+        h2 { font-size: 1.25rem; color: #b0b0b0; }
+        label { display: block; margin: 0.5rem 0 0.25rem; color: #b0b0b0; font-size: 0.9rem; }
+        input[type="text"],
+        input[type="password"],
+        input[type="email"],
+        input[type="file"] {
+            width: 100%;
+            padding: 0.6rem;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #555;
+        }
+        button, .btn {
+            background: #e0e0e0;
+            color: #0a0a0a;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+            text-decoration: none;
+        }
+        button:hover, .btn:hover { background: #d0d0d0; }
+        button.secondary, .btn.secondary {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #333;
+        }
+        button.secondary:hover, .btn.secondary:hover { background: #242424; }
+        .danger { color: #ff4d4d; font-size: 0.85rem; margin-top: -0.75rem; margin-bottom: 1rem; }
+        .mono-badge {
+            display: inline-block;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #b0b0b0;
+            padding: 0.2rem 0.6rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            margin-left: 0.5rem;
+        }
+        .nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .nav a {
+            padding: 0.5rem 1rem;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .nav a:hover { background: #161616; border-color: #444; text-decoration: none; }
+        .nav a.active { background: #e0e0e0; color: #0a0a0a; }
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #222;
+            color: #666;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+        .avatar-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #2a2a2a;
+            background: #0a0a0a;
+        }
+        .user-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+        .user-card {
+            background: #121212;
+            border: 1px solid #222;
+            border-radius: 4px;
+            padding: 1rem;
+        }
+        .user-card .name { font-weight: 600; color: #e0e0e0; margin-bottom: 0.25rem; }
+        .user-card .role { font-size: 0.8rem; color: #b0b0b0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+        .user-card .meta { font-size: 0.75rem; color: #888; margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% block content %}{% endblock %}
+        <div class="footer">
+            DATS Website Auth &middot; Abyss Engine &middot; Monochrome theme
+        </div>
+    </div>
+</body>
+</html>

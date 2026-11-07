@@ -630,6 +630,8 @@ struct VkRendererImpl {
     }
 
     void drawGameFrame() { drawFrame(); }
+    void beginUIFrame() { nk_glfw3_new_frame(); }
+    void endUIFrame() { drawFrame(); }
     bool shouldClose() const { return glfwWindowShouldClose(window); }
     void pollEvents() { glfwPollEvents(); }
     void waitIdle() { vkDeviceWaitIdle(device); }
@@ -673,6 +675,8 @@ VkRenderer::~VkRenderer() { delete impl; }
 bool VkRenderer::init(GLFWwindow* window, uint32_t w, uint32_t h) { return impl->init(window, w, h); }
 void VkRenderer::drawFrame() { impl->drawFrame(); }
 void VkRenderer::drawGameFrame() { impl->drawGameFrame(); }
+void VkRenderer::beginUIFrame() { impl->beginUIFrame(); }
+void VkRenderer::endUIFrame() { impl->endUIFrame(); }
 bool VkRenderer::shouldClose() const { return impl->shouldClose(); }
 void VkRenderer::pollEvents() { impl->pollEvents(); }
 void VkRenderer::waitIdle() { impl->waitIdle(); }

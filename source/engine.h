@@ -19,7 +19,9 @@ enum class MenuScreen {
     MAIN,
     SETTINGS,
     PYTHON_CONSOLE,
-    CREDITS
+    CREDITS,
+    LOGIN,
+    PROFILE
 };
 
 struct Settings {
@@ -51,4 +53,11 @@ namespace Engine {
     void SetWindow(GLFWwindow* window);
     void RequestQuit();
     bool IsQuitRequested();
+
+    // Authentication
+    bool   IsLoggedIn();
+    void   SetLoggedIn(const std::string& username, const std::string& role);
+    void   ClearLoggedIn();
+    std::string GetLoggedInUser();
+    std::string GetLoggedInRole();
 }

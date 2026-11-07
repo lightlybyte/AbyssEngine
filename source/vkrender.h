@@ -33,6 +33,9 @@ public:
     void drawFrame();
     void drawGameFrame();
 
+    void beginUIFrame();
+    void endUIFrame();
+
     bool shouldClose() const;
     void pollEvents();
     void waitIdle();

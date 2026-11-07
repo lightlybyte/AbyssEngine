@@ -29,6 +29,11 @@ static Settings g_settings;
 static GLFWwindow* g_window    = nullptr;
 static bool g_quitRequested    = false;
 
+// Authentication state
+static bool   g_loggedIn    = false;
+static std::string g_loggedInUser;
+static std::string g_loggedInRole;
+
 static bool parseBool(const std::string& s) {
     std::string t = s;
     for (auto& c : t) c = (char)std::tolower((unsigned char)c);
@@ -41,6 +46,8 @@ static Ui::Screen ToUi(MenuScreen s) {
         case MenuScreen::SETTINGS:       return Ui::Screen::Settings;
         case MenuScreen::PYTHON_CONSOLE: return Ui::Screen::Console;
         case MenuScreen::CREDITS:        return Ui::Screen::Credits;
+        case MenuScreen::LOGIN:          return Ui::Screen::Login;
+        case MenuScreen::PROFILE:        return Ui::Screen::Profile;
         default:                         return Ui::Screen::Main;
     }
 }
@@ -76,6 +83,72 @@ void Init(VkRenderer& renderer) {
             [](PyObject*, PyObject*) -> PyObject* {
                 return PyUnicode_FromString("DATS v1.0 - Tactical Operations Command");
             });
+        PyEngine::RegisterCallback("auth_login",
+            [](PyObject*, PyObject* args) -> PyObject* {
+                const char* username = nullptr;
+                const char* password = nullptr;
+                if (!PyArg_ParseTuple(args, "ss", &username, &password)) return nullptr;
+                // Communicate with the Flask auth server via urllib in the
+                // embedded Python interpreter (keeps C++ free of HTTP deps).
+                std::string code = R"(
+import urllib.request, json
+try:
+    data = json.dumps({"username": ")" + std::string(username) + R"(", "password": ")" + std::string(password) + R"("}).encode()
+    req = urllib.request.Request("http://127.0.0.1/api/login", data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=3) as r:
+        result = json.loads(r.read().decode())
+        if result.get("ok"):
+            print("[AUTH] logged in as " + result.get("username"))
+        else:
+            print("[AUTH] login failed: " + str(result.get("error")))
+except Exception as e:
+        print("[AUTH] login error: " + str(e))
+)";
+                PyEngine::RunString(code);
+                Py_RETURN_NONE;
+            });
+        PyEngine::RegisterCallback("auth_logout",
+            [](PyObject*, PyObject*) -> PyObject* {
+                std::string code = R"(
+import urllib.request
+try:
+    req = urllib.request.Request("http://127.0.0.1/api/logout", data=b"", method="POST")
+    urllib.request.urlopen(req, timeout=3)
+    print("[AUTH] logged out")
+except Exception as e:
+    print("[AUTH] logout error: " + str(e))
+)";
+                PyEngine::RunString(code);
+                Py_RETURN_NONE;
+            });
+        PyEngine::RegisterCallback("auth_me",
+            [](PyObject*, PyObject*) -> PyObject* {
+                std::string code = R"(
+import urllib.request, json
+try:
+    req = urllib.request.Request("http://127.0.0.1/api/me")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        result = json.loads(r.read().decode())
+        print("[AUTH] me: " + json.dumps(result))
+except Exception as e:
+    print("[AUTH] me error: " + str(e))
+)";
+                PyEngine::RunString(code);
+                Py_RETURN_NONE;
+            });
+        PyEngine::RegisterCallback("engine_set_loggedin",
+            [](PyObject*, PyObject* args) -> PyObject* {
+                const char* username = nullptr;
+                const char* role = nullptr;
+                if (!PyArg_ParseTuple(args, "ss", &username, &role)) return nullptr;
+                SetLoggedIn(username, role);
+                Py_RETURN_NONE;
+            });
+        PyEngine::RegisterCallback("engine_clear_loggedin",
+            [](PyObject*, PyObject*) -> PyObject* {
+                ClearLoggedIn();
+                Py_RETURN_NONE;
+            });
         PyEngine::RunFile("scripts/dats_console.py");
     }
     (void)renderer;
@@ -94,6 +167,21 @@ void SetMenuScreen(MenuScreen s) { g_menuScreen = s; }
 
 void RequestQuit() { g_quitRequested = true; }
 bool IsQuitRequested() { return g_quitRequested; }
+
+// Authentication
+bool Engine::IsLoggedIn() { return g_loggedIn; }
+void Engine::SetLoggedIn(const std::string& username, const std::string& role) {
+    g_loggedIn    = true;
+    g_loggedInUser = username;
+    g_loggedInRole = role;
+}
+void Engine::ClearLoggedIn() {
+    g_loggedIn    = false;
+    g_loggedInUser.clear();
+    g_loggedInRole.clear();
+}
+std::string Engine::GetLoggedInUser() { return g_loggedInUser; }
+std::string Engine::GetLoggedInRole() { return g_loggedInRole; }
 
 void Update(VkRenderer& /*renderer*/, double dt) {
     if (g_state == GameState::PLAYING) g_gameTime += dt;

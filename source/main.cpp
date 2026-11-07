@@ -111,14 +111,9 @@ int main() {
         // ------------------------------------------------------------------
 
         if (Engine::GetState() == GameState::MENU) {
-            // TODO: renderer.beginUIFrame();       (or equivalent)
-            // Engine::RenderMenu(renderer, renderer.uiContext());
-            // renderer.endUIFrame();
-            //
-            // Until the API exists, this branch draws nothing — the menu
-            // simply doesn't appear. The build succeeds, the app boots, the
-            // game branch works. Fill in the calls above once vkrender.h
-            // exposes them.
+            renderer.beginUIFrame();
+            Engine::RenderMenu(renderer, renderer.ctx());
+            renderer.endUIFrame();
         } else if (Engine::GetState() == GameState::PLAYING) {
             Engine::RenderGame(renderer);
         }

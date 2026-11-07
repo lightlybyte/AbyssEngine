@@ -19,6 +19,8 @@
 #include <engine.h>
 
 #include <GLFW/glfw3.h>
+#include <windows.h>
+#include <shellapi.h>
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -69,6 +71,8 @@ static const char* ScreenLabel(Screen s) {
         case Screen::Console:    return "CONSOLE";
         case Screen::Archive:    return "ARCHIVE";
         case Screen::Credits:    return "CREDITS";
+        case Screen::Login:      return "LOGIN";
+        case Screen::Profile:    return "PROFILE";
         default:                 return "—";
     }
 }
@@ -242,6 +246,32 @@ static bool DrawSidebar(struct nk_context* ctx, Screen current, Screen* out_next
     for (const auto& e : entries) {
         if (NavRow(ctx, e.label, e.hint, current == e.id, D::nav_row_h)) {
             *out_next = e.id;
+            changed = true;
+        }
+        Space(ctx, D::row_gap);
+    }
+
+    Rule(ctx, G::rule);
+    Space(ctx, 12.0f);
+    Label(ctx, "SESSION", D::text_small, G::dim);
+    Space(ctx, 8.0f);
+
+    struct SessionRow { const char* label; Screen id; bool visible; };
+    const SessionRow sessionRows[] = {
+        { "LOGIN",     Screen::Login,    !Engine::IsLoggedIn() },
+        { "PROFILE",   Screen::Profile,  Engine::IsLoggedIn() },
+        { "LOGOUT",    Screen::Main,     Engine::IsLoggedIn() },
+    };
+    for (const auto& s : sessionRows) {
+        if (!s.visible) continue;
+        if (NavRow(ctx, s.label, "", current == s.id, D::nav_row_h)) {
+            if (std::strcmp(s.label, "LOGOUT") == 0) {
+                Engine::ClearLoggedIn();
+            }
+            if (s.id == Screen::Login)      Engine::SetMenuScreen(MenuScreen::LOGIN);
+            if (s.id == Screen::Profile)    Engine::SetMenuScreen(MenuScreen::PROFILE);
+            if (s.id == Screen::Main)       Engine::SetMenuScreen(MenuScreen::MAIN);
+            *out_next = s.id;
             changed = true;
         }
         Space(ctx, D::row_gap);
@@ -503,6 +533,75 @@ static Screen Screen_Credits(struct nk_context* ctx) {
     return Screen::Credits;
 }
 
+static Screen Screen_Login(struct nk_context* ctx) {
+    Label(ctx, "LOGIN", D::text_head, G::white);
+    Space(ctx, 8.0f);
+    Label(ctx, "Enter your credentials.", D::text_small, G::dim);
+    Space(ctx, 28.0f);
+
+    static char s_user[128] = "";
+    static char s_pass[128] = "";
+
+    nk_layout_row_dynamic(ctx, 36.0f, 1);
+    nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, s_user,
+                                   sizeof(s_user), nk_filter_default);
+    nk_label(ctx, "Username", NK_TEXT_LEFT);
+    Space(ctx, 6.0f);
+
+    nk_layout_row_dynamic(ctx, 36.0f, 1);
+    nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, s_pass,
+                                   sizeof(s_pass), nk_filter_default);
+    nk_label(ctx, "Password", NK_TEXT_LEFT);
+    Space(ctx, 12.0f);
+
+    nk_layout_row_dynamic(ctx, 40.0f, 1);
+    if (ActionRow(ctx, "SIGN IN", "ENTER", D::action_row_h)) {
+        Engine::ExecutePythonCommand(
+            "engine_set_loggedin(\"" + std::string(s_user) + "\", \"user\")");
+        Engine::SetMenuScreen(MenuScreen::PROFILE);
+    }
+    Space(ctx, D::row_gap);
+
+    nk_layout_row_dynamic(ctx, 40.0f, 1);
+    if (ActionRow(ctx, "REGISTER / CREATE ACCOUNT", "WEB", D::action_row_h)) {
+        // Open the auth website register page in the system browser.
+        ShellExecuteA(nullptr, "open", "http://127.0.0.1/register", nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    Space(ctx, D::row_gap);
+
+    Label(ctx, "Owner account: lightlybyte / DivineAsiegbu123", D::text_small, G::dim);
+    return Screen::Login;
+}
+
+static Screen Screen_Profile(struct nk_context* ctx) {
+    Label(ctx, "PROFILE", D::text_head, G::white);
+    Space(ctx, 8.0f);
+    Label(ctx, "Your account.", D::text_small, G::dim);
+    Space(ctx, 28.0f);
+
+    std::string user = Engine::GetLoggedInUser();
+    std::string role = Engine::GetLoggedInRole();
+
+    nk_layout_row_dynamic(ctx, 22.0f, 1);
+    nk_label(ctx, ("Username: " + user).c_str(), NK_TEXT_LEFT);
+    nk_layout_row_dynamic(ctx, 22.0f, 1);
+    nk_label(ctx, ("Role: " + role).c_str(), NK_TEXT_LEFT);
+    Space(ctx, 16.0f);
+
+    nk_layout_row_dynamic(ctx, 40.0f, 1);
+    if (ActionRow(ctx, "OPEN PROFILE ON WEBSITE", "WEB", D::action_row_h)) {
+        ShellExecuteA(nullptr, "open", "http://127.0.0.1/profile", nullptr, nullptr, SW_SHOWNORMAL);
+    }
+    Space(ctx, D::row_gap);
+
+    nk_layout_row_dynamic(ctx, 40.0f, 1);
+    if (ActionRow(ctx, "LOGOUT", "EXIT", D::action_row_h)) {
+        Engine::ExecutePythonCommand("engine_clear_loggedin()");
+        Engine::SetMenuScreen(MenuScreen::MAIN);
+    }
+    return Screen::Profile;
+}
+
 void ApplyStyle(struct nk_context* ctx) {
     struct nk_color table[NK_COLOR_COUNT];
     for (int i = 0; i < NK_COLOR_COUNT; ++i) table[i] = G::text;
@@ -633,6 +732,8 @@ void Render(struct nk_context* ctx, VkRenderer& renderer, Screen screen,
             case Screen::Console:    req = Screen_Console(ctx); break;
             case Screen::Archive:    req = Screen_Archive(ctx); break;
             case Screen::Credits:    req = Screen_Credits(ctx); break;
+            case Screen::Login:      req = Screen_Login(ctx); break;
+            case Screen::Profile:    req = Screen_Profile(ctx); break;
             default: break;
         }
         if (req != screen) next = req;

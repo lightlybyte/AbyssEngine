@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Profile &middot; DATS Auth{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <a href="{{ url_for('profile') }}" class="active">Profile</a>
+    <a href="{{ url_for('logout') }}">Logout</a>
+</div>
+
+<h1>Profile</h1>
+
+<div class="card">
+    <h2>{{ user.username }} <span class="mono-badge">{{ user.role }}</span></h2>
+
+    <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
+        <div>
+            {% if avatar_url %}
+                <img src="{{ avatar_url }}?v={{ user.last_login or user.created_at }}" alt="Avatar" class="avatar-preview">
+            {% else %}
+                <div class="avatar-preview" style="display:flex; align-items:center; justify-content:center; color:#666; font-size:0.8rem;">No avatar</div>
+            {% endif %}
+            <form method="POST" action="{{ url_for('upload_avatar') }}" enctype="multipart/form-data" style="margin-top:0.5rem;">
+                <input type="file" name="avatar" accept="image/*">
+                <button type="submit" style="margin-top:0.5rem;">Upload Profile Picture</button>
+            </form>
+        </div>
+
+        <div style="max-width: 400px;">
+            <p><strong>Role:</strong> {{ user.role }}</p>
+            <p><strong>Created:</strong> {{ user.created_at }}</p>
+            <p><strong>Last login:</strong> {{ user.last_login or "Never" }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Account</h2>
+    <p><a href="{{ url_for('logout') }}">Log out</a></p>
+</div>
+{% endblock %}

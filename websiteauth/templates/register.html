@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Register &middot; DATS Auth{% endblock %}
+
+{% block content %}
+<h1>Register</h1>
+{% if error %}
+<div class="danger">{{ error }}</div>
+{% endif %}
+<div class="card">
+    <form method="POST">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required autocomplete="username">
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="new-password">
+
+        <label for="confirm">Confirm Password</label>
+        <input type="password" id="confirm" name="confirm" required autocomplete="new-password">
+
+        <button type="submit">Create Account</button>
+    </form>
+</div>
+<div class="card">
+    <p>Already have an account? <a href="{{ url_for('login') }}">Sign In</a></p>
+</div>
+{% endblock %}
