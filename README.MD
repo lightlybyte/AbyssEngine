@@ -1,5 +1,6 @@
-# DATS (Dynamic Arms Training Simulator) (Made in my Abyss Engine! For a friend game jam!)
-## Made with a ~$0.79 budget (unspent)
+# DATS — Dynamic Arms Training Simulator
+
+*A tactical military simulation built with Abyss Engine for a friend’s game jam.*
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 ![C](https://img.shields.io/badge/C-11-lightgrey.svg)
@@ -7,76 +8,84 @@
 ![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Luminance-black.svg)
 ![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
 
-DATS is a tactical military simulation powered by **Abyss Engine**. 
+> Developed independently on a budget of approximately **$0.79**, which remains unspent.
 
-The client is entirely hand-coded, utilizing a pure C/C++ architecture with Vulkan for rendering and AbyssEngine for specific high-performance subsystems. The server is written from scratch in pure C and x86-64 Assembly, operating at 120Hz to 240Hz.
+DATS is a tactical military simulation powered by **Abyss Engine**. The client is implemented in C and C++, with Vulkan used for rendering and Abyss Engine providing selected performance-critical systems. The server is written in C and x86-64 Assembly, with a target tick rate of 120–240 Hz.
 
 ## Technical Architecture
 
 ### Abyss Engine
-Abyss Engine is a custom, purpose-built game engine designed for extreme efficiency and low-end hardware compatibility.
-- **Client:** Hand-coded C/C++ with Vulkan rendering. Utilizes AbyssEngine for data-oriented systems where appropriate.
-- **Server:** Pure C and Assembly. No garbage collection. Cycle-level determinism.
-- **Netcode:** Authoritative 120Hz to 240Hz tick rate. Custom UDP protocol with packet obfuscation.
-- **Physics:** Unified solver for vehicles and biological entities. Simulates structural integrity, ballistics, and fluid dynamics.
+
+Abyss Engine is a custom game engine designed for performance and compatibility with low-end hardware.
+
+- **Client:** C/C++ implementation with Vulkan rendering and data-oriented systems.
+- **Server:** C and Assembly, designed without garbage collection.
+- **Networking:** Authoritative 120–240 Hz server tick rate and a custom UDP protocol with packet obfuscation.
+- **Physics:** Unified solver for vehicles and biological entities, including structural integrity, ballistics, and fluid dynamics.
 
 ### Asset Pipeline
-- **Procedural Generation:** Bulk assets (terrain, foliage, clutter) are generated at runtime to minimize binary size.
-- **Custom Parsers:** Features a custom C/C++ parser for `.blend` files (BPC/MDP), eliminating the need for external export tools.
-- **Optimized Formats:** Uses runtime generated assets with some stored on disk, this balances binary size and QOL and speed of load.
-- **Audio:** Opus compression for all audio. The system compresses 500GB of source samples into a 10MB runtime footprint. (I mean, i hand picked em...)
+
+- **Procedural generation:** Terrain, foliage, and environmental clutter are generated at runtime to reduce binary size.
+- **Custom parsers:** A C/C++ parser for `.blend` files (BPC/MDP) is intended to remove reliance on external export tools.
+- **Asset formats:** Runtime-generated and disk-based assets are used to balance storage requirements, loading time, and usability.
+- **Audio:** Opus compression is used for audio. The project targets a 10 MB runtime footprint for a hand-selected library of source samples.
 
 ### Performance Targets
-- **Storage:** 1GB Maximum (Friends Game Jam Reqs)
-- **RAM:** 4GB minimum
-- **GPU:** Intel HD 620 (128MB VRAM)
-- **OS:** Windows 8 / Linux Kernel 4.0+
+
+| Component | Target |
+|---|---|
+| Storage | 5 GB maximum (game jam requirement) |
+| RAM | 4 GB minimum |
+| GPU | Intel HD Graphics 620 (128 MB VRAM) |
+| Operating system | Windows 8 / Linux kernel 4.0+ |
 
 ## Features
 
-- **Custom Server Architecture:** Written in C and C++. No third-party netcode frameworks.
-- **Authoritative Physics:** Server validates all movement, ballistics, and collision. Impossible physics are rejected at the packet level.
-- **Hardcore Simulation:** No health bars. No crosshairs. Players must physically check their bodies for trauma, bleeding, and fractures.
-- **Modding Support:** Custom in-game modding platform (UDM) utilizing a custom scripting language.
-- **User-Hosted Infrastructure:** LAN and embedded UPnP support for community servers.
-- **FPV Drone Support:** Native integration for DJI FPV controllers.
+- **Custom server architecture:** C/C++ implementation without third-party networking frameworks.
+- **Server-authoritative simulation:** Movement, ballistics, and collision are validated by the server.
+- **Hardcore medical simulation:** No health bars or crosshairs. Players must inspect their characters for trauma, bleeding, and fractures.
+- **Modding support:** UDM, a custom in-game modding platform with its own scripting language.
+- **Community hosting:** LAN support and embedded UPnP functionality.
+- **FPV drone support:** Native integration with DJI FPV controllers.
 
 ## License
 
-This project is licensed under the **DATS Source-Available License (DSAL) 1.0**. 
-The source code is open for viewing, studying, and modding. Commercial distribution, selling the binary, or monetizing the engine is strictly prohibited. See the [LICENSE](LICENSE) file for details.
+DATS is distributed under the **DATS Source-Available License (DSAL) 1.0**.
 
-## Status
+The source code may be viewed, studied, and modified for modding. Commercial distribution, selling the binary, and monetizing the engine are prohibited. See [LICENSE](LICENSE) for the full terms.
 
-Alpha development. The engine is currently being created, ported, and optimized. 
+## Development Status
 
----
+**Alpha.** Abyss Engine is under active development, including creation, porting, and optimization.
 
 ## References and Inspirations
 
-Our main inspiration for creating DATS is because we looked at AAA games and we looked at the entry hardware to play them and they looked like they didn't correlate with the prices, so we decided to go scavenging to find anything that will possibly lower the entry hardware to play AAA games and we stumbled 
+DATS was inspired by the gap between the hardware requirements of AAA games and the cost of the systems needed to run them. The project explores ways to reduce hardware requirements and make demanding games more accessible on lower-end systems.
 
-## Support the Developer
+## Support Development
 
-DATS and Abyss Engine are developed entirely independently with a $0.79 budget. There is no publisher, no investors, and no monetization in the game itself. 
+DATS and Abyss Engine are independently developed, with no publisher, investors, or in-game monetization. The project was started with a budget of approximately **$0.79**.
 
-If you wish to support the ongoing development, you can send donations via the following cryptocurrency networks:
+Donations can be sent through the following cryptocurrency networks:
 
 **Bitcoin (BTC)**
 ```text
 bc1q7l3cwycx5v3aprt5rksccr9zpgzgp33yu9v9pt
 ```
+
 **Ethereum (ETH)**
 ```text
 0x86E65e135deb4EA17bA161f79021a629877ECb20
 ```
+
 **Litecoin (LTC)**
 ```text
 ltc1qy9h4ppp0py32597dx2nrqpm6zklg6934ypvjvz
 ```
+
 **Solana (SOL)**
 ```text
 HfANSA58L9bWwHcRpDfVRUpQia5LDj4oZbauhiL6noea
 ```
 
-We apreciate any funding of any size.
+Donations of any amount are appreciated.
