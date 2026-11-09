@@ -752,8 +752,6 @@ void Render(struct nk_context* ctx, VkRenderer& renderer, Screen screen,
     if (Engine::IsQuitRequested() && window) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
-
-    nk_end(ctx);
 }
 
 } // namespace Ui
