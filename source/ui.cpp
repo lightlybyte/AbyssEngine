@@ -649,108 +649,107 @@ void Render(struct nk_context* ctx, VkRenderer& renderer, Screen screen,
     if (!ctx) return;
 
     struct nk_rect full = nk_rect(0, 0, (float)w, (float)h);
-    if (!nk_begin(ctx, "dats_root", full,
-                  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
-        nk_end(ctx);
-        return;
-    }
+    if (nk_begin(ctx, "dats_root", full,
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+        struct nk_rect content = nk_window_get_content_region(ctx);
+        Fill(ctx, content, G::bg);
 
-    struct nk_rect content = nk_window_get_content_region(ctx);
-    Fill(ctx, content, G::bg);
+        const float inset = D::frame_inset;
+        struct nk_rect frame = nk_rect(inset, inset,
+                                       (float)w - inset * 2.0f,
+                                       (float)h - inset * 2.0f);
+        nk_stroke_rect(nk_window_get_canvas(ctx), frame, 0.0f,
+                       D::frame_border, G::border);
+        DrawBrackets(ctx, frame, G::bright);
 
-    const float inset = D::frame_inset;
-    struct nk_rect frame = nk_rect(inset, inset,
-                                   (float)w - inset * 2.0f,
-                                   (float)h - inset * 2.0f);
-    nk_stroke_rect(nk_window_get_canvas(ctx), frame, 0.0f,
-                   D::frame_border, G::border);
-    DrawBrackets(ctx, frame, G::bright);
+        struct nk_rect sidebar = frame;
+        sidebar.w = D::sidebar_w;
+        Fill(ctx, sidebar, G::panel);
 
-    struct nk_rect sidebar = frame;
-    sidebar.w = D::sidebar_w;
-    Fill(ctx, sidebar, G::panel);
+        struct nk_rect pane = frame;
+        pane.x += D::sidebar_w;
+        pane.w -= D::sidebar_w;
+        Fill(ctx, pane, G::panel);
 
-    struct nk_rect pane = frame;
-    pane.x += D::sidebar_w;
-    pane.w -= D::sidebar_w;
-    Fill(ctx, pane, G::panel);
+        struct nk_rect divider = frame;
+        divider.x += D::sidebar_w;
+        divider.w = 1.0f;
+        Fill(ctx, divider, G::rule);
 
-    struct nk_rect divider = frame;
-    divider.x += D::sidebar_w;
-    divider.w = 1.0f;
-    Fill(ctx, divider, G::rule);
+        struct nk_rect sideInner = sidebar;
+        sideInner.x += D::sidebar_pad_x;
+        sideInner.y += D::sidebar_pad_y;
+        sideInner.w -= D::sidebar_pad_x * 2.0f;
+        sideInner.h -= D::sidebar_pad_y * 2.0f;
 
-    struct nk_rect sideInner = sidebar;
-    sideInner.x += D::sidebar_pad_x;
-    sideInner.y += D::sidebar_pad_y;
-    sideInner.w -= D::sidebar_pad_x * 2.0f;
-    sideInner.h -= D::sidebar_pad_y * 2.0f;
+        struct nk_rect contInner = pane;
+        contInner.x += D::content_pad_x;
+        contInner.y += D::content_pad_y;
+        contInner.w -= D::content_pad_x * 2.0f;
+        contInner.h -= D::content_pad_y * 2.0f;
 
-    struct nk_rect contInner = pane;
-    contInner.x += D::content_pad_x;
-    contInner.y += D::content_pad_y;
-    contInner.w -= D::content_pad_x * 2.0f;
-    contInner.h -= D::content_pad_y * 2.0f;
+        Screen next = screen;
 
-    Screen next = screen;
+        nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
+        if (nk_begin(ctx, "dats_content", contInner, NK_WINDOW_NO_SCROLLBAR)) {
+            DrawContentHeader(ctx, screen);
 
-    nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
-    if (nk_begin(ctx, "dats_content", contInner, NK_WINDOW_NO_SCROLLBAR)) {
-        DrawContentHeader(ctx, screen);
+            Screen req = screen;
+            switch (screen) {
+                case Screen::Main:       req = Screen_Main(ctx); break;
+                case Screen::Operations: req = Screen_Operations(ctx); break;
+                case Screen::Settings:   req = Screen_Settings(ctx, renderer); break;
+                case Screen::Console:    req = Screen_Console(ctx); break;
+                case Screen::Archive:    req = Screen_Archive(ctx); break;
+                case Screen::Credits:    req = Screen_Credits(ctx); break;
+                case Screen::Login:      req = Screen_Login(ctx); break;
+                case Screen::Profile:    req = Screen_Profile(ctx); break;
+                default: break;
+            }
+            if (req != screen) next = req;
 
-        Screen req = screen;
-        switch (screen) {
-            case Screen::Main:       req = Screen_Main(ctx); break;
-            case Screen::Operations: req = Screen_Operations(ctx); break;
-            case Screen::Settings:   req = Screen_Settings(ctx, renderer); break;
-            case Screen::Console:    req = Screen_Console(ctx); break;
-            case Screen::Archive:    req = Screen_Archive(ctx); break;
-            case Screen::Credits:    req = Screen_Credits(ctx); break;
-            case Screen::Login:      req = Screen_Login(ctx); break;
-            case Screen::Profile:    req = Screen_Profile(ctx); break;
-            default: break;
+            if (contInner.h > 400.0f) Space(ctx, 60.0f);
+            Rule(ctx, G::rule);
+            Space(ctx, 10.0f);
+            nk_layout_row_dynamic(ctx, 16.0f, 1);
+            struct nk_rect fb = nk_widget_bounds(ctx);
+            const struct nk_user_font* font = ctx->style.font;
+            nk_draw_text(nk_window_get_canvas(ctx), fb,
+                         "DATS / ABYSS ENGINE",
+                         (int)std::strlen("DATS / ABYSS ENGINE"),
+                         font, nk_rgba(0,0,0,0), G::dim);
+            const char* right = "BUILD 2027.Q1";
+            float rw = font->width(font->userdata, font->height, right,
+                                   (int)std::strlen(right));
+            struct nk_rect rr = fb;
+            rr.x = fb.x + fb.w - rw;
+            rr.w = rw;
+            nk_draw_text(nk_window_get_canvas(ctx), rr, right,
+                         (int)std::strlen(right), font, nk_rgba(0,0,0,0), G::dim);
+            nk_end(ctx);
         }
-        if (req != screen) next = req;
+        nk_style_pop_color(ctx);
 
-        if (contInner.h > 400.0f) Space(ctx, 60.0f);
-        Rule(ctx, G::rule);
-        Space(ctx, 10.0f);
-        nk_layout_row_dynamic(ctx, 16.0f, 1);
-        struct nk_rect fb = nk_widget_bounds(ctx);
-        const struct nk_user_font* font = ctx->style.font;
-        nk_draw_text(nk_window_get_canvas(ctx), fb,
-                     "DATS / ABYSS ENGINE",
-                     (int)std::strlen("DATS / ABYSS ENGINE"),
-                     font, nk_rgba(0,0,0,0), G::dim);
-        const char* right = "BUILD 2027.Q1";
-        float rw = font->width(font->userdata, font->height, right,
-                               (int)std::strlen(right));
-        struct nk_rect rr = fb;
-        rr.x = fb.x + fb.w - rw;
-        rr.w = rw;
-        nk_draw_text(nk_window_get_canvas(ctx), rr, right,
-                     (int)std::strlen(right), font, nk_rgba(0,0,0,0), G::dim);
-    }
-    nk_end(ctx);
-    nk_style_pop_color(ctx);
+        nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
+        if (nk_begin(ctx, "dats_sidebar", sideInner, NK_WINDOW_NO_SCROLLBAR)) {
+            Screen requested = screen;
+            if (DrawSidebar(ctx, screen, &requested)) next = requested;
+            nk_end(ctx);
+        }
+        nk_style_pop_color(ctx);
 
-    nk_style_push_color(ctx, &ctx->style.window.background, G::panel);
-    if (nk_begin(ctx, "dats_sidebar", sideInner, NK_WINDOW_NO_SCROLLBAR)) {
-        Screen requested = screen;
-        if (DrawSidebar(ctx, screen, &requested)) next = requested;
-    }
-    nk_end(ctx);
-    nk_style_pop_color(ctx);
+        TransitionOverlay(ctx, g_transition);
 
-    TransitionOverlay(ctx, g_transition);
+        if (next != screen) {
+            g_screen     = next;
+            g_transition = 0.0f;
+        }
 
-    if (next != screen) {
-        g_screen     = next;
-        g_transition = 0.0f;
-    }
+        if (Engine::IsQuitRequested() && window) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
 
-    if (Engine::IsQuitRequested() && window) {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
+        nk_end(ctx);
     }
 }
 
