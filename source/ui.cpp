@@ -251,32 +251,6 @@ static bool DrawSidebar(struct nk_context* ctx, Screen current, Screen* out_next
         Space(ctx, D::row_gap);
     }
 
-    Rule(ctx, G::rule);
-    Space(ctx, 12.0f);
-    Label(ctx, "SESSION", D::text_small, G::dim);
-    Space(ctx, 8.0f);
-
-    struct SessionRow { const char* label; Screen id; bool visible; };
-    const SessionRow sessionRows[] = {
-        { "LOGIN",     Screen::Login,    !Engine::IsLoggedIn() },
-        { "PROFILE",   Screen::Profile,  Engine::IsLoggedIn() },
-        { "LOGOUT",    Screen::Main,     Engine::IsLoggedIn() },
-    };
-    for (const auto& s : sessionRows) {
-        if (!s.visible) continue;
-        if (NavRow(ctx, s.label, "", current == s.id, D::nav_row_h)) {
-            if (std::strcmp(s.label, "LOGOUT") == 0) {
-                Engine::ClearLoggedIn();
-            }
-            if (s.id == Screen::Login)      Engine::SetMenuScreen(MenuScreen::LOGIN);
-            if (s.id == Screen::Profile)    Engine::SetMenuScreen(MenuScreen::PROFILE);
-            if (s.id == Screen::Main)       Engine::SetMenuScreen(MenuScreen::MAIN);
-            *out_next = s.id;
-            changed = true;
-        }
-        Space(ctx, D::row_gap);
-    }
-
     struct nk_rect content = nk_window_get_content_region(ctx);
     if (content.h > 500.0f) Space(ctx, 60.0f);
 
@@ -558,7 +532,7 @@ static Screen Screen_Login(struct nk_context* ctx) {
     if (ActionRow(ctx, "SIGN IN", "ENTER", D::action_row_h)) {
         Engine::ExecutePythonCommand(
             "engine_set_loggedin(\"" + std::string(s_user) + "\", \"user\")");
-        Engine::SetMenuScreen(MenuScreen::PROFILE);
+        return Screen::Profile;
     }
     Space(ctx, D::row_gap);
 
@@ -597,7 +571,7 @@ static Screen Screen_Profile(struct nk_context* ctx) {
     nk_layout_row_dynamic(ctx, 40.0f, 1);
     if (ActionRow(ctx, "LOGOUT", "EXIT", D::action_row_h)) {
         Engine::ExecutePythonCommand("engine_clear_loggedin()");
-        Engine::SetMenuScreen(MenuScreen::MAIN);
+        return Screen::Main;
     }
     return Screen::Profile;
 }
