@@ -169,19 +169,19 @@ void RequestQuit() { g_quitRequested = true; }
 bool IsQuitRequested() { return g_quitRequested; }
 
 // Authentication
-bool Engine::IsLoggedIn() { return g_loggedIn; }
-void Engine::SetLoggedIn(const std::string& username, const std::string& role) {
+bool IsLoggedIn() { return g_loggedIn; }
+void SetLoggedIn(const std::string& username, const std::string& role) {
     g_loggedIn    = true;
     g_loggedInUser = username;
     g_loggedInRole = role;
 }
-void Engine::ClearLoggedIn() {
+void ClearLoggedIn() {
     g_loggedIn    = false;
     g_loggedInUser.clear();
     g_loggedInRole.clear();
 }
-std::string Engine::GetLoggedInUser() { return g_loggedInUser; }
-std::string Engine::GetLoggedInRole() { return g_loggedInRole; }
+std::string GetLoggedInUser() { return g_loggedInUser; }
+std::string GetLoggedInRole() { return g_loggedInRole; }
 
 void Update(VkRenderer& /*renderer*/, double dt) {
     if (g_state == GameState::PLAYING) g_gameTime += dt;
