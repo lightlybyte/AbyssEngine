@@ -4,10 +4,12 @@
 // ---------------------------------------------------------------------------
 
 #include <string>
+#include <cstdint>
 
 struct nk_context;
 struct GLFWwindow;
 class VkRenderer;
+namespace Phys { class World; struct Body; }
 
 enum class GameState {
     MENU,
@@ -60,4 +62,10 @@ namespace Engine {
     void   ClearLoggedIn();
     std::string GetLoggedInUser();
     std::string GetLoggedInRole();
-}
+
+    // Physics
+    Phys::World& GetPhysicsWorld();
+    uint32_t AddPhysicsBody(const Phys::Body& body);
+    Phys::Body* GetPhysicsBody(uint32_t id);
+    void RemovePhysicsBody(uint32_t id);
+};

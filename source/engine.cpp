@@ -15,6 +15,7 @@
 #include <engine.h>
 #include <ui.h>
 #include <vkrender.h>
+#include <physics.h>
 
 #include <iostream>
 #include <fstream>
@@ -33,6 +34,9 @@ static bool g_quitRequested    = false;
 static bool   g_loggedIn    = false;
 static std::string g_loggedInUser;
 static std::string g_loggedInRole;
+
+// Physics world
+static Phys::World g_physicsWorld;
 
 static bool parseBool(const std::string& s) {
     std::string t = s;
@@ -183,8 +187,17 @@ void ClearLoggedIn() {
 std::string GetLoggedInUser() { return g_loggedInUser; }
 std::string GetLoggedInRole() { return g_loggedInRole; }
 
+// Physics
+Phys::World& GetPhysicsWorld() { return g_physicsWorld; }
+uint32_t AddPhysicsBody(const Phys::Body& body) { return g_physicsWorld.addBody(body); }
+Phys::Body* GetPhysicsBody(uint32_t id) { return g_physicsWorld.getBody(id); }
+void RemovePhysicsBody(uint32_t id) { g_physicsWorld.removeBody(id); }
+
 void Update(VkRenderer& /*renderer*/, double dt) {
-    if (g_state == GameState::PLAYING) g_gameTime += dt;
+    if (g_state == GameState::PLAYING) {
+        g_gameTime += dt;
+        g_physicsWorld.step(static_cast<float>(dt));
+    }
     Ui::Update((float)dt);
 }
 

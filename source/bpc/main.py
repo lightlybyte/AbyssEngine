@@ -6,7 +6,7 @@ import numpy as np
 from glb_reader import read_glb
 from scene_walk import walk_scene
 from extract import extract_positions
-from classify import classify
+from classify import classify_mesh
 
 
 def _serialize(v):
@@ -26,9 +26,9 @@ def build_instructions(glb_path):
     instructions = []
 
     for name, mesh_idx, world_M in walk_scene(gltf):
-        for prim_idx, positions, indices, normals in extract_positions(
-            gltf, bin_blob, mesh_idx
-        ):
+        results = extract_positions(gltf, bin_blob, mesh_idx)
+        for result in results:
+            prim_idx, positions, indices, normals, uvs, material_idx = result
             ones = np.ones((len(positions), 1))
             pos_w = (np.hstack([positions, ones]) @ world_M.T)[:, :3]
 
@@ -38,16 +38,20 @@ def build_instructions(glb_path):
                 n = np.linalg.norm(nrm_w, axis=1, keepdims=True)
                 nrm_w = nrm_w / np.maximum(n, 1e-12)
 
-            parts = classify(pos_w, indices, name=name, normals=nrm_w)
+            kind, params = classify_mesh(pos_w, indices)
+            params = dict(params)  # make a mutable copy
+            params["name"] = name
+            if nrm_w is not None:
+                params["normals"] = nrm_w
 
-            for part in parts:
-                instructions.append({
-                    "source": name,
-                    "primitive_index": prim_idx,
-                    "part_index": part["component"],
-                    "primitive": part["primitive"],
-                    "params": _serialize(part["params"]),
-                })
+            instructions.append({
+                "source": name,
+                "primitive_index": prim_idx,
+                "component": 0,
+                "primitive": kind,
+                "params": _serialize(params),
+                "material_index": material_idx,
+            })
 
     return instructions
 
