@@ -48,6 +48,12 @@ bin/
 *.user
 *.pro.user
 *.pro.user.*
+"user:lightlybyte"  
+"password:DivineAsiegbu123"  
+"users.json"  
+"users.json.bak"  
+"Flask.*secret"  
+
 
 # ------------------------------------------
 # Runtime & Generated Data
