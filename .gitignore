@@ -34,6 +34,8 @@ __pycache__/
 # IDE & Editor Files
 # ------------------------------------------
 .vs/
+lib/
+bin/
 .vscode/
 .idea/
 *.code-workspace
