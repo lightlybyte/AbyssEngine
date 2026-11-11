@@ -1,0 +1,119 @@
+[33mc958c47[m Added FFMPEG into AbyssEngine
+ bin/avcodec-63.dll                              |  Bin [31m0[m -> [32m98216448[m bytes
+ bin/avdevice-63.dll                             |  Bin [31m0[m -> [32m6561792[m bytes
+ bin/avfilter-12.dll                             |  Bin [31m0[m -> [32m106941952[m bytes
+ bin/avformat-63.dll                             |  Bin [31m0[m -> [32m22877696[m bytes
+ bin/avutil-61.dll                               |  Bin [31m0[m -> [32m3157504[m bytes
+ bin/ffmpeg.exe                                  |  Bin [31m0[m -> [32m633344[m bytes
+ bin/ffplay.exe                                  |  Bin [31m0[m -> [32m15964160[m bytes
+ bin/ffprobe.exe                                 |  Bin [31m0[m -> [32m225792[m bytes
+ bin/swresample-7.dll                            |  Bin [31m0[m -> [32m484352[m bytes
+ bin/swscale-10.dll                              |  Bin [31m0[m -> [32m2423808[m bytes
+ include/libavcodec/ac3_parser.h                 |   36 [32m+[m
+ include/libavcodec/adts_parser.h                |   37 [32m+[m
+ include/libavcodec/avcodec.h                    | 2961 [32m+++++++++++++++++++++[m
+ include/libavcodec/avdct.h                      |   91 [32m+[m
+ include/libavcodec/bsf.h                        |  332 [32m+++[m
+ include/libavcodec/codec.h                      |  345 [32m+++[m
+ include/libavcodec/codec_desc.h                 |  142 [32m+[m
+ include/libavcodec/codec_id.h                   |  686 [32m+++++[m
+ include/libavcodec/codec_par.h                  |  302 [32m+++[m
+ include/libavcodec/d3d11va.h                    |  109 [32m+[m
+ include/libavcodec/defs.h                       |  362 [32m+++[m
+ include/libavcodec/dirac.h                      |  135 [32m+[m
+ include/libavcodec/dv_profile.h                 |   82 [32m+[m
+ include/libavcodec/dxva2.h                      |   90 [32m+[m
+ include/libavcodec/exif.h                       |  242 [32m++[m
+ include/libavcodec/jni.h                        |   67 [32m+[m
+ include/libavcodec/mediacodec.h                 |  103 [32m+[m
+ include/libavcodec/packet.h                     |  950 [32m+++++++[m
+ include/libavcodec/qsv.h                        |  109 [32m+[m
+ include/libavcodec/smpte_436m.h                 |  254 [32m++[m
+ include/libavcodec/vdpau.h                      |  138 [32m+[m
+ include/libavcodec/version.h                    |   45 [32m+[m
+ include/libavcodec/version_major.h              |   45 [32m+[m
+ include/libavcodec/videotoolbox.h               |   85 [32m+[m
+ include/libavcodec/vorbis_parser.h              |   74 [32m+[m
+ include/libavdevice/avdevice.h                  |  397 [32m+++[m
+ include/libavdevice/version.h                   |   45 [32m+[m
+ include/libavdevice/version_major.h             |   36 [32m+[m
+ include/libavfilter/avfilter.h                  | 1194 [32m+++++++++[m
+ include/libavfilter/buffersink.h                |  172 [32m++[m
+ include/libavfilter/buffersrc.h                 |  231 [32m++[m
+ include/libavfilter/version.h                   |   48 [32m+[m
+ include/libavfilter/version_major.h             |   38 [32m+[m
+ include/libavformat/avformat.h                  | 3192 [32m+++++++++++++++++++++++[m
+ include/libavformat/avio.h                      |  831 [32m++++++[m
+ include/libavformat/version.h                   |   47 [32m+[m
+ include/libavformat/version_major.h             |   52 [32m+[m
+ include/libavutil/adler32.h                     |   63 [32m+[m
+ include/libavutil/aes.h                         |   69 [32m+[m
+ include/libavutil/aes_ctr.h                     |   99 [32m+[m
+ include/libavutil/ambient_viewing_environment.h |   72 [32m+[m
+ include/libavutil/attributes.h                  |  235 [32m++[m
+ include/libavutil/audio_fifo.h                  |  187 [32m++[m
+ include/libavutil/avassert.h                    |  125 [32m+[m
+ include/libavutil/avconfig.h                    |    6 [32m+[m
+ include/libavutil/avstring.h                    |  428 [32m+++[m
+ include/libavutil/avutil.h                      |  340 [32m+++[m
+ include/libavutil/base64.h                      |   72 [32m+[m
+ include/libavutil/blowfish.h                    |   82 [32m+[m
+ include/libavutil/bprint.h                      |  254 [32m++[m
+ include/libavutil/bswap.h                       |  105 [32m+[m
+ include/libavutil/buffer.h                      |  322 [32m+++[m
+ include/libavutil/camellia.h                    |   70 [32m+[m
+ include/libavutil/cast5.h                       |   80 [32m+[m
+ include/libavutil/channel_layout.h              |  762 [32m++++++[m
+ include/libavutil/common.h                      |  578 [32m++++[m
+ include/libavutil/container_fifo.h              |  130 [32m+[m
+ include/libavutil/cpu.h                         |  152 [32m++[m
+ include/libavutil/crc.h                         |  102 [32m+[m
+ include/libavutil/csp.h                         |  208 [32m++[m
+ include/libavutil/des.h                         |   81 [32m+[m
+ include/libavutil/detection_bbox.h              |  108 [32m+[m
+ include/libavutil/dict.h                        |  242 [32m++[m
+ include/libavutil/display.h                     |  109 [32m+[m
+ include/libavutil/dovi_meta.h                   |  408 [32m+++[m
+ include/libavutil/downmix_info.h                |  115 [32m+[m
+ include/libavutil/encryption_info.h             |  205 [32m++[m
+ include/libavutil/error.h                       |  129 [32m+[m
+ include/libavutil/eval.h                        |  140 [32m+[m
+ include/libavutil/executor.h                    |   67 [32m+[m
+ include/libavutil/ffversion.h                   |    5 [32m+[m
+ include/libavutil/fifo.h                        |  242 [32m++[m
+ include/libavutil/file.h                        |   62 [32m+[m
+ include/libavutil/film_grain_params.h           |  282 [32m++[m
+ include/libavutil/frame.h                       | 1215 [32m+++++++++[m
+ include/libavutil/hash.h                        |  264 [32m++[m
+ include/libavutil/hdr_dynamic_metadata.h        |  480 [32m++++[m
+ include/libavutil/hdr_dynamic_vivid_metadata.h  |  292 [32m+++[m
+ include/libavutil/hmac.h                        |   99 [32m+[m
+ include/libavutil/hwcontext.h                   |  601 [32m+++++[m
+ include/libavutil/hwcontext_amf.h               |   58 [32m+[m
+ include/libavutil/hwcontext_cuda.h              |   74 [32m+[m
+ include/libavutil/hwcontext_d3d11va.h           |  192 [32m++[m
+ include/libavutil/hwcontext_d3d12va.h           |  209 [32m++[m
+ include/libavutil/hwcontext_drm.h               |  169 [32m++[m
+ include/libavutil/hwcontext_dxva2.h             |   75 [32m+[m
+ include/libavutil/hwcontext_mediacodec.h        |   61 [32m+[m
+ include/libavutil/hwcontext_oh.h                |   34 [32m+[m
+ include/libavutil/hwcontext_opencl.h            |  100 [32m+[m
+ include/libavutil/hwcontext_qsv.h               |   86 [32m+[m
+ include/libavutil/hwcontext_vaapi.h             |  117 [32m+[m
+ include/libavutil/hwcontext_vdpau.h             |   44 [32m+[m
+ include/libavutil/hwcontext_videotoolbox.h      |  106 [32m+[m
+ include/libavutil/hwcontext_vulkan.h            |  355 [32m+++[m
+ include/libavutil/iamf.h                        |  697 [32m+++++[m
+ include/libavutil/imgutils.h                    |  377 [32m+++[m
+ include/libavutil/intfloat.h                    |   77 [32m+[m
+ include/libavutil/intreadwrite.h                |  677 [32m+++++[m
+ include/libavutil/lfg.h                         |   81 [32m+[m
+ include/libavutil/log.h                         |  427 [32m+++[m
+ include/libavutil/lzo.h                         |   66 [32m+[m
+ include/libavutil/macros.h                      |   80 [32m+[m
+ include/libavutil/mastering_display_metadata.h  |  137 [32m+[m
+ include/libavutil/mathematics.h                 |  300 [32m+++[m
+ include/libavutil/md5.h                         |   89 [32m+[m
+ include/libavutil/mem.h                         |  607 [32m+++++[m
+ include/libavutil/motion_vector.h               |   57 [32m+[m
+ include/libavutil/murmur3.
