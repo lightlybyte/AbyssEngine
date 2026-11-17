@@ -1,91 +1,85 @@
 # DATS — Dynamic Arms Training Simulator
 
-*A tactical military simulation built with Abyss Engine for a friend’s game jam.*
+*A tactical military simulation built with Abyss Engine for a game jam.*
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
-![C](https://img.shields.io/badge/C-11-lightgrey.svg)
-![Vulkan](https://img.shields.io/badge/Vulkan-1.3-orange.svg)
-![AbyssEngine](https://img.shields.io/badge/AbyssEngine-vQ1.2026.1%20%2F%20Luminance-black.svg)
+![Vulkan](https://img.shields.io/badge/Vulkan-1.0-orange.svg)
 ![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
 
-> Developed independently on a budget of approximately **$0.79**, which remains unspent.
+> **Status:** Pre-alpha / game-jam engine. Not production-ready.
+> See [TOWORKON.md](TOWORKON.md) for the current engineering backlog.
 
-DATS is a tactical military simulation powered by **Abyss Engine**. The client is implemented in C and C++, with Vulkan used for rendering and Abyss Engine providing selected performance-critical systems. The server is written in C and x86-64 Assembly, with a target tick rate of 120–240 Hz.
+DATS is a tactical military simulation powered by **Abyss Engine**.
+The client runs in C++/Vulkan; the server prototype is under development.
 
 ## Technical Architecture
 
-### Abyss Engine
+### Abyss Engine *(implemented)*
 
-Abyss Engine is a custom game engine designed for performance and compatibility with low-end hardware.
+| Area | Status | Notes |
+|------|--------|-------|
+| Vulkan renderer | Implemented (Vulkan 1.0) | Nuklear overlay, swapchain recreation on resize/out-of-date |
+| Windowing / input | Implemented | GLFW 3, events polled each frame |
+| UI menu system | Implemented | Multi-screen Nuklear UI (main, settings, console, credits...) |
+| Python embedding | Implemented | CPython 3.x via python.cpp; registered native callbacks |
+| BPC GLB pipeline | Partial | Reads glTF 2.0 JSON + bin; classifies mesh primitives |
+| Physics prototype | Partial | Simple rigid-body stepping exists (physics.cpp) |
+| Game state machine | Implemented | GameState: MENU / PLAYING / PAUSED with transitions |
+| Wren scripting VM | Vendor files present | Header/source included but not wired into main loop yet |
 
-- **Client:** C/C++ implementation with Vulkan rendering and data-oriented systems.
-- **Server:** C and Assembly, designed without garbage collection.
-- **Networking:** Authoritative 120–240 Hz server tick rate and a custom UDP protocol with packet obfuscation.
-- **Physics:** Unified solver for vehicles and biological entities, including structural integrity, ballistics, and fluid dynamics.
+### Planned / not-yet-implemented
 
-### Asset Pipeline
+The following are **planned** and must not be confused with shipped functionality:
 
-- **Procedural generation:** Terrain, foliage, and environmental clutter are generated at runtime to reduce binary size.
-- **Custom parsers:** A C/C++ parser for `.blend` files (BPC/MDP) is intended to remove reliance on external export tools.
-- **Asset formats:** Runtime-generated and disk-based assets are used to balance storage requirements, loading time, and usability.
-- **Audio:** Opus compression is used for audio. The project targets a 10 MB runtime footprint for a hand-selected library of source samples.
+- Server-authoritative networking (UDP 120–240 Hz)
+- Full ballistics / fluid-dynamics solver
+- FPV / DJI controller integration
+- UDM modding platform
+- Custom .blend parser (BPC C++ replacement)
+- opus-compressed audio streaming at target footprint
+- Procedural terrain/foliage generation
+- x86-64 assembly server tick path
 
-### Performance Targets
+## Asset Pipeline
 
-| Component | Target |
-|---|---|
-| Storage | 5 GB maximum (game jam requirement) |
-| RAM | 4 GB minimum |
-| GPU | Intel HD Graphics 620 (128 MB VRAM) |
-| Operating system | Windows 8 / Linux kernel 4.0+ |
+- **Current:** Python BPC reads .glb -> extracts positions/normals/UVs -> classifies primitives -> emits JSON instructions.
+- **Planned:** C++ GLB/BPC parser, hot-reload, cache, and runtime format versioning.
 
-## Features
+## Known Limitations
 
-- **Custom server architecture:** C/C++ implementation without third-party networking frameworks.
-- **Server-authoritative simulation:** Movement, ballistics, and collision are validated by the server.
-- **Hardcore medical simulation:** No health bars or crosshairs. Players must inspect their characters for trauma, bleeding, and fractures.
-- **Modding support:** UDM, a custom in-game modding platform with its own scripting language.
-- **Community hosting:** LAN support and embedded UPnP functionality.
-- **FPV drone support:** Native integration with DJI FPV controllers.
+| Area | Limitation |
+|------|-----------|
+| Renderer | Vulkan 1.0 only; no validation layers in release builds; Intel HD Graphics 620 untested |
+| Resizing | Swapchain recreates on resize; zero-sized frames throw rather than silently drop |
+| Python | Single-threaded interpreter; GIL not acquired from worker threads |
+| GLB support | Sparse accessors / external buffers / normalized integer accessors unsupported |
+| Networking | None implemented |
+| Physics | Basic stepping only; no contact caching, no vehicle dynamics |
+
+## Build
+
+See Compile.py for the build orchestrator.
+
+```bash
+# Windows
+python Compile.py       # launches interactive TUI
+
+# Linux (set vars before running)
+export PYTHON_ROOT=/usr
+export VULKAN_SDK=/opt/vulkan-sdk
+python Compile.py
+```
+
+Required dependencies:
+- Toolchain: GCC 9+ or MSVC 19.2+
+- Vulkan SDK (provides glslc and vulkan-1.lib)
+- Python 3.8+ headers and shared lib (libpython3.x.a / python3x.lib)
+- GLFW 3 (vendored in include/GLFW/)
+- GLM (vendored in include/glm/)
+- Nuklear single-header (vendored in include/)
 
 ## License
 
-DATS is distributed under the **DATS Source-Available License (DSAL) 1.0**.
+DATS and Abyss Engine are distributed under the **DATS Source-Available License (DSAL) 1.0**.
 
-The source code may be viewed, studied, and modified for modding. Commercial distribution, selling the binary, and monetizing the engine are prohibited. See [LICENSE](LICENSE) for the full terms.
-
-## Development Status
-
-**Alpha.** Abyss Engine is under active development, including creation, porting, and optimization.
-
-## References and Inspirations
-
-DATS was inspired by the gap between the hardware requirements of AAA games and the cost of the systems needed to run them. The project explores ways to reduce hardware requirements and make demanding games more accessible on lower-end systems.
-
-## Support Development
-
-DATS and Abyss Engine are independently developed, with no publisher, investors, or in-game monetization. The project was started with a budget of approximately **$0.79**.
-
-Donations can be sent through the following cryptocurrency networks:
-
-**Bitcoin (BTC)**
-```text
-bc1q7l3cwycx5v3aprt5rksccr9zpgzgp33yu9v9pt
-```
-
-**Ethereum (ETH)**
-```text
-0x86E65e135deb4EA17bA161f79021a629877ECb20
-```
-
-**Litecoin (LTC)**
-```text
-ltc1qy9h4ppp0py32597dx2nrqpm6zklg6934ypvjvz
-```
-
-**Solana (SOL)**
-```text
-HfANSA58L9bWwHcRpDfVRUpQia5LDj4oZbauhiL6noea
-```
-
-Donations of any amount are appreciated.
+This is **not** an OSI-approved open-source license. The source may be viewed and modified for personal or internal use. Commercial distribution, selling the binary, and monetization of the engine are prohibited. See LICENSE for full terms.

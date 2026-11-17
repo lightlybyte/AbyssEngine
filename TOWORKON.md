@@ -126,14 +126,26 @@
 
 ## 2.1 Python embedding
 
--   [ ] **Fix `PyMethodDef` pointer lifetime.**
-    -   `source/python.cpp` stores method definitions in a
-        `std::vector`, reserves `size + 1`, pushes entries, and passes
-        pointers to CPython.
-    -   CPython retains method-definition pointers. A later vector
-        reallocation can invalidate earlier pointers.
-    -   Use stable storage such as `std::deque`, individually allocated
-        definitions, or a known maximum reserved before registration.
+-   [x] **Fix `PyMethodDef` pointer lifetime.**
+    -   `source/python.cpp` now allocates each `PyMethodDef` individually
+        with `new`, pushes a placeholder into the vector, and swaps in
+        the stable allocation. This prevents vector reallocation from
+        invalidating CPython's retained pointers.
+-   [ ] **Document Python ownership and reference counting.**
+    -   Identify borrowed vs. owned references.
+    -   Release owned references on all success and failure paths.
+-   [ ] **Centralize Python error handling.**
+    -   Check C API return values and report Python exceptions rather
+        than continuing with invalid state.
+-   [ ] **Define GIL/threading policy before calling Python from
+    multiple threads.**
+    -   Worker threads must not enter Python without an
+        initialization/GIL strategy.
+    -   If calls are currently single-threaded, document that
+        restriction.
+-   [ ] **Add a minimal embedded-Python test.**
+    -   Initialize interpreter, register a native method, call it,
+        handle an exception, and test shutdown if supported.
 -   [ ] **Document Python ownership and reference counting.**
     -   Identify borrowed vs. owned references.
     -   Release owned references on all success and failure paths.
@@ -168,19 +180,21 @@
 
 ## 2.3 GLB/BPC data correctness
 
--   [ ] **Use inverse-transpose for normals when needed.**
-    -   `main.py` transforms normals with `world_M[:3, :3]`, which is
-        incorrect under nonuniform scaling.
-    -   Normalize transformed normals and handle singular transforms.
+-   [x] **Use inverse-transpose for normals when needed.**
+    -   `main.py` now computes the inverse-transpose of the world
+        transform's upper-left 3×3 matrix before transforming normals.
+        Singular transforms fall back to the identity.
 -   [ ] **Define supported GLB features.**
     -   List supported primitive modes, accessors, component types,
         indices, materials, and transforms.
--   [ ] **Handle normalized integer accessors or reject them
-    explicitly.**
+-   [x] **Validate accessor bounds and buffer offsets.**
+    -   `glb_reader.py::read_accessor()` now checks:
+      - accessor index against `accessors` length
+      - computed buffer-view end offset against actual blob size
+    -   Malformed input raises `ValueError` with a descriptive message.
+-   [ ] **Handle normalized integer accessors or reject them explicitly.**
 -   [ ] **Handle sparse accessors or reject them explicitly.**
 -   [ ] **Handle external buffers or reject them explicitly.**
--   [ ] **Validate accessor bounds and buffer offsets.**
-    -   Malformed input must not cause out-of-bounds reads.
 -   [ ] **Add test fixtures:** one mesh, multiple primitives,
     indexed/non-indexed geometry, normals, UVs, node transforms,
     nonuniform scale, and unsupported-feature cases.
