@@ -201,6 +201,7 @@ ENGINE_CPP = [
     str(SOURCE / "main.cpp"),
     str(SOURCE / "python.cpp"),
     str(SOURCE / "ui.cpp"),
+    str(SOURCE / "physics.cpp"),
 ]
 
 def _preflight_shadow_check():

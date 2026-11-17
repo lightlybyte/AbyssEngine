@@ -11,6 +11,8 @@
 //   and declares it.
 // ---------------------------------------------------------------------------
 
+#define GLM_ENABLE_EXPERIMENTAL  // Enable GLM_GTX extensions
+
 #include "pyengine.h"        // our wrapper, not CPython's Python.h
 #include <engine.h>
 #include <ui.h>

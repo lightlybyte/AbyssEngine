@@ -69,6 +69,9 @@ struct VkRendererImpl {
     struct nk_context* ctx = nullptr;
     std::chrono::high_resolution_clock::time_point startTime;
     bool vsyncEnabled = false;
+    
+    uint32_t graphicsQueueFamily = UINT32_MAX;
+    uint32_t presentQueueFamily = UINT32_MAX;
 
     void createInstance() {
         VkApplicationInfo app{};
@@ -164,6 +167,8 @@ struct VkRendererImpl {
         if (vkCreateDevice(physicalDevice, &ci, nullptr, &device) != VK_SUCCESS)
             throw std::runtime_error("failed to create device");
 
+        graphicsQueueFamily = q.graphics;
+        presentQueueFamily = q.present;
         vkGetDeviceQueue(device, q.graphics, 0, &graphicsQueue);
         vkGetDeviceQueue(device, q.present, 0, &presentQueue);
     }
@@ -209,13 +214,13 @@ struct VkRendererImpl {
         ci.imageArrayLayers = 1;
         ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         // Use concurrent sharing if graphics and present families differ
-        if (q.graphics != q.present) {
-            uint32_t queueFamilyIndices[] = { q.graphics, q.present };
-            ci.sharingMode = VK_SHARING_MODE_CONCURRENT;
+        if (graphicsQueueFamily != presentQueueFamily) {
+            uint32_t queueFamilyIndices[] = { graphicsQueueFamily, presentQueueFamily };
+            ci.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             ci.pQueueFamilyIndices = queueFamilyIndices;
             ci.queueFamilyIndexCount = 2;
         } else {
-            ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         }
         ci.preTransform = caps.currentTransform;
         ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -532,8 +537,7 @@ struct VkRendererImpl {
         window = win;
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, int width, int height) {
-            void* ptr;
-            glfwGetWindowUserPointer(w, &ptr);
+            void* ptr = glfwGetWindowUserPointer(w);
             if (ptr) reinterpret_cast<VkRendererImpl*>(ptr)->swapChainSwapNeeded = true;
         });
         try {
@@ -694,8 +698,8 @@ struct VkRendererImpl {
 
     // Resize callback registered with GLFW
     static void resizeCallback(GLFWwindow* w, int width, int height) {
-        void* ptr;
-        glfwGetWindowUserPointer(w, &ptr);
+        (void)width; (void)height;
+        void* ptr = glfwGetWindowUserPointer(w);
         if (ptr) reinterpret_cast<VkRendererImpl*>(ptr)->swapChainSwapNeeded = true;
     }
 

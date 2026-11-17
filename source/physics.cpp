@@ -2,6 +2,8 @@
 // physics.cpp — High-performance rigid body physics implementation.
 // ---------------------------------------------------------------------------
 
+#define GLM_ENABLE_EXPERIMENTAL  // Enable GLM_GTX extensions
+
 #include "physics.h"
 
 #include <algorithm>
@@ -102,10 +104,10 @@ void World::broadPhase() {
 
         Vec3 minB = b.position;
         Vec3 maxB = b.position;
-        if (b.shape == Body::BOX) {
+        if (b.shape == ShapeType::BOX) {
             minB -= b.halfExtents;
             maxB += b.halfExtents;
-        } else if (b.shape == Body::SPHERE) {
+        } else if (b.shape == ShapeType::SPHERE) {
             minB -= Vec3(b.radius);
             maxB += Vec3(b.radius);
         }
@@ -220,15 +222,15 @@ void World::narrowPhase() {
         if (A->asleep && B->asleep) continue;
 
         bool hit = false;
-        if (A->shape == Body::SPHERE && B->shape == Body::SPHERE)
+        if (A->shape == ShapeType::SPHERE && B->shape == ShapeType::SPHERE)
             hit = testSphereSphere(*A, *B, c);
-        else if (A->shape == Body::SPHERE && B->shape == Body::PLANE)
+        else if (A->shape == ShapeType::SPHERE && B->shape == ShapeType::PLANE)
             hit = testSpherePlane(*A, *B, c);
-        else if (A->shape == Body::PLANE && B->shape == Body::SPHERE) {
+        else if (A->shape == ShapeType::PLANE && B->shape == ShapeType::SPHERE) {
             hit = testSpherePlane(*B, *A, c);
             if (hit) c.normal = -c.normal;
         }
-        else if (A->shape == Body::BOX && B->shape == Body::BOX)
+        else if (A->shape == ShapeType::BOX && B->shape == ShapeType::BOX)
             hit = testBoxBox(*A, *B, c);
         else
             hit = testSphereSphere(*A, *B, c);
@@ -362,7 +364,7 @@ std::optional<std::pair<uint32_t, Vec3>> World::raycast(
         Real t = kInf;
         Vec3 normal = {0,0,0};
 
-        if (b.shape == Body::SPHERE) {
+        if (b.shape == ShapeType::SPHERE) {
             Vec3 oc = origin - b.position;
             Real a = glm::dot(dir, dir);
             Real bb = 2.0f * glm::dot(oc, dir);
@@ -374,7 +376,7 @@ std::optional<std::pair<uint32_t, Vec3>> World::raycast(
             if (t < 0.0f || t > maxDist) continue;
             normal = glm::normalize(origin + dir * t - b.position);
         }
-        else if (b.shape == Body::PLANE) {
+        else if (b.shape == ShapeType::PLANE) {
             Real denom = glm::dot(dir, b.planeNormal);
             if (std::abs(denom) < kEps) continue;
             t = (b.planeOffset - glm::dot(origin, b.planeNormal)) / denom;

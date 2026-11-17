@@ -113,7 +113,6 @@ int main() {
     }
 
     Engine::Shutdown();
-    Renderer cleanup happens via destructor.
 
     glfwDestroyWindow(window);
     glfwTerminate();
