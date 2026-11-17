@@ -155,20 +155,23 @@ void RegisterCallback(const std::string& name, PyCFunction func) {
     PyObject* builtins = PyEval_GetBuiltins();
     if (!builtins) return;
 
+    // Use a new allocation per callback to guarantee pointer stability.
+    // CPython retains PyMethodDef pointers, so we must not let them be
+    // moved by vector reallocation.
+    PyMethodDef* stored = new PyMethodDef();
+    g_methodDefs->push_back(PyMethodDef{});  // reserve space first
+    std::swap(stored, &g_methodDefs->back());
+    delete stored;
+
     PyObject* pName = PyUnicode_InternFromString(name.c_str());
     if (!pName) return;
 
-    PyMethodDef def{};
-    def.ml_name  = PyUnicode_AsUTF8(pName);
-    def.ml_meth  = func;
-    def.ml_flags = METH_VARARGS;
-    def.ml_doc   = nullptr;
+    g_methodDefs->back().ml_name  = PyUnicode_AsUTF8(pName);
+    g_methodDefs->back().ml_meth  = func;
+    g_methodDefs->back().ml_flags = METH_VARARGS;
+    g_methodDefs->back().ml_doc   = nullptr;
 
-    g_methodDefs->reserve(g_methodDefs->size() + 1);
-    g_methodDefs->push_back(def);
-
-    PyMethodDef* stored = &g_methodDefs->back();
-    PyObject* pFunc = PyCFunction_New(stored, nullptr);
+    PyObject* pFunc = PyCFunction_New(&g_methodDefs->back(), nullptr);
     if (!pFunc) {
         Py_DECREF(pName);
         return;

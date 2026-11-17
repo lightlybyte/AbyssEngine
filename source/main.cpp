@@ -72,6 +72,12 @@ int main() {
         return 1;
     }
 
+    // Register callback so game can change its own title/size on resize
+    glfwSetWindowSizeCallback(window, [](GLFWwindow*, int w, int h) {
+        (void)w; (void)h;
+        // Resize is handled by the renderer's swapchain recreation
+    });
+
     Engine::Init(renderer);
 
     double lastTime = glfwGetTime();
@@ -83,47 +89,31 @@ int main() {
         double dt  = now - lastTime;
         lastTime   = now;
 
-        Engine::Update(renderer, dt);
+        GameState state = Engine::GetState();
 
-        // ------------------------------------------------------------------
-        // Frame submission.
-        //
-        // The VkRenderer API around here is project-specific. What this loop
-        // MUST do, in order:
-        //
-        //   MENU state:
-        //     1. begin a UI frame (vkCmdBeginRendering / acquire swapchain image)
-        //     2. Engine::RenderMenu(renderer, nk_ctx)  -- draws nuklear widgets
-        //     3. submit the UI vertex buffer + present
-        //
-        //   PLAYING state:
-        //     1. begin a game frame
-        //     2. Engine::RenderGame(renderer)  -- draws scene
-        //     3. present
-        //
-        // Your VkRenderer already knows how to draw the game frame
-        // (`drawGameFrame`), so the PLAYING branch below works today. The MENU
-        // branch needs whatever method names vkrender.h uses to (a) hand you
-        // the nuklear context and (b) submit the UI. Common names in similar
-        // renderers are: beginFrame/endFrame, submitUI, uiContext, nkContext.
-        //
-        // Replace the calls marked TODO below with your real ones.
-        // ------------------------------------------------------------------
-
-        if (Engine::GetState() == GameState::MENU) {
+        if (state == GameState::MENU) {
+            Engine::Update(renderer, dt);
             renderer.beginUIFrame();
             Engine::RenderMenu(renderer, renderer.ctx());
             renderer.endUIFrame();
-        } else if (Engine::GetState() == GameState::PLAYING) {
-            Engine::RenderGame(renderer);
+        } else if (state == GameState::PLAYING) {
+            Engine::Update(renderer, dt);
+            renderer.drawGameFrame();
+        } else if (state == GameState::PAUSED) {
+            // Pause: show overlay menu on top of game
+            Engine::Update(renderer, dt);
+            renderer.beginUIFrame();
+            Engine::RenderMenu(renderer, renderer.ctx());
+            renderer.endUIFrame();
+        }
+
+        if (Engine::IsQuitRequested()) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
         }
     }
 
     Engine::Shutdown();
-
-    // TODO: renderer.shutdown() or renderer.destroy() — whatever your
-    //       vkrender.h exposes for teardown. If it's a destructor, this line
-    //       can be removed entirely.
+    Renderer cleanup happens via destructor.
 
     glfwDestroyWindow(window);
     glfwTerminate();

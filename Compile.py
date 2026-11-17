@@ -56,7 +56,9 @@ CC  = "gcc"
 # ---------------------------------------------------------------------------
 
 SYSTEM_PYTHON_ROOT = Path(
-    r"C:\Users\lightlybyt\AppData\Local\Python\pythoncore-3.15-64"
+    os.environ.get("PYTHON_ROOT") or Path(
+        "C:/Users/lightlybyt/AppData/Local/Python/pythoncore-3.15-64"
+    )
 )
 
 PY_VER_RE = re.compile(r"^python(\d+)(\d+)\.(?:lib|dll\.a|zip|dll)$")
@@ -134,10 +136,15 @@ def _find_python():
 
 PYTHON_ROOT, PYTHON_INC, PYTHON_LIB, PYTHON_DLL, PYTHON_VER = _find_python()
 
+# ---------------------------------------------------------------------------
+# Validation and setup instructions
+# ---------------------------------------------------------------------------
 if PYTHON_INC is None:
-    print("[Compile] WARNING: Python.h + pyconfig.h not found together.")
+    print("[Compile] WARNING: Python development headers not found.")
     print(f"[Compile]   Looked at {SYSTEM_PYTHON_ROOT / 'include'}")
-    print("[Compile]   Or set DATS_PYTHON_ROOT.")
+    print(f"[Compile]   Set DATS_PYTHON_ROOT or PYTHON_ROOT to the CPython dev install.")
+    print("[Compile]   Windows: download from python.org (Windows embeddable package) or install via msi")
+    print("[Compile]   Linux:  apt install libpython3-dev  (or equivalent)")
     PY_VER = "315"
 else:
     PY_VER = PYTHON_VER
@@ -147,8 +154,19 @@ else:
         print(f"[Compile] Python libs    : {PYTHON_LIB}")
     else:
         print(f"[Compile] WARNING: python{PY_VER}.lib not found — link may fail.")
+        print(f"[Compile]   Look in {SYSTEM_PYTHON_ROOT} for .lib / .dll.a / .a files.")
     if PYTHON_DLL is not None:
         print(f"[Compile] Python runtime : {PYTHON_DLL}")
+
+# Validate Vulkan SDK
+_vulkan_ok = VULKAN_INC.exists() and VULKAN_LIB.exists()
+if not _vulkan_ok:
+    print("[Compile] WARNING: Vulkan SDK not fully configured.")
+    if not VULKAN_INC.exists():
+        print(f"[Compile]   Missing include dir: {VULKAN_INC}")
+    if not VULKAN_LIB.exists():
+        print(f"[Compile]   Missing lib dir:   {VULKAN_LIB}")
+    print("[Compile]   Download from https://vulkan.lunarg.com/sdk/home")
 
 PYTHON_EMBED_ROOT = LIB_DIR / "pythonembed"
 
@@ -214,10 +232,15 @@ LIBS_WINDOWS = [x for x in [
 ] if x]
 
 LIBS_LINUX = [
-    "-lvulkan", "-lglfw",
+    "-lvulkan",
+    "-lglfw",
     "-lpthread", "-ldl", "-lm", "-lX11",
-    "-Wl,--as-needed",
 ]
+if PYTHON_LIB:
+    LIBS_LINUX += ["-L", str(PYTHON_LIB)]
+if PYTHON_VER:
+    LIBS_LINUX.append(f"-lpython{PYTHON_VER}")
+LIBS_LINUX.append("-Wl,--as-needed")
 
 if os.name == "nt":
     os.system("")
@@ -364,14 +387,19 @@ def build_shaders(build_dir, platform):
     if platform.lower() == "windows":
         glslc = VULKAN_BIN / "glslc.exe"
         if not glslc.exists():
-            log(f"glslc.exe not found in {VULKAN_BIN}, skipping shaders")
-            return
+            raise RuntimeError(
+                f"glslc.exe not found in {VULKAN_BIN}\n"
+                "  Set VULKAN_SDK or copy Vulkan SDK to vulkansdk/\n"
+                "  Alternatively place pre-compiled .spv files in Shaders/"
+            )
         glslc_cmd = str(glslc)
     else:
         glslc_cmd = shutil.which("glslc")
         if not glslc_cmd:
-            log("glslc not on PATH, skipping shaders")
-            return
+            raise RuntimeError(
+                "glslc not found on PATH.\n"
+                "  Install the Vulkan SDK or provide pre-compiled .spv files."
+            )
 
     def _one(f):
         src = Path(f)

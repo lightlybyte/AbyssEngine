@@ -20,11 +20,19 @@ def _node_local_matrix(node):
 
 
 def walk_scene(gltf):
-    scene = gltf["scenes"][gltf.get("scene", 0)]
-    nodes = gltf["nodes"]
-    stack = [(i, np.eye(4)) for i in reversed(scene["nodes"])]
+    """Walk the scene graph and yield (name, mesh_idx, world_M) for each mesh node."""
+    scenes = gltf.get("scenes", [])
+    if not scenes:
+        return
+    scene = scenes[gltf.get("scene", 0)]
+    nodes = gltf.get("nodes", [])
+    if not nodes:
+        return
+    stack = [(i, np.eye(4)) for i in reversed(scene.get("nodes", []))]
     while stack:
         idx, parent_M = stack.pop()
+        if idx < 0 or idx >= len(nodes):
+            continue
         node = nodes[idx]
         world_M = parent_M @ _node_local_matrix(node)
         if "mesh" in node:

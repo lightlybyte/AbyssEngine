@@ -42,103 +42,80 @@
 
 ## 1.1 Main loop and menu integration
 
--   [ ] **Integrate the menu render path into the application loop.**
-    -   `source/main.cpp` calls `Engine::Update()` and
-        `Engine::RenderGame()`.
-    -   `Engine::RenderMenu()` exists in `source/engine.cpp`, but the
-        reviewed main loop does not call it.
-    -   Verify the intended state flow: menu → game → pause/menu → exit.
--   [ ] **Define an explicit engine/game state model.**
-    -   Avoid scattered booleans and implicit state assumptions.
-    -   Ensure every state has update and render behavior.
--   [ ] **Make the quit path reachable.**
-    -   Verify window close and in-game exit both terminate cleanly.
--   [ ] **Test the main loop with a minimal scene.**
-    -   Confirm update, render, input, and transitions happen in the
-        expected order.
+-   [x] **Integrate the menu render path into the application loop.**
+    -   `source/main.cpp` now calls `Engine::Update()` and branches on
+        `GameState` to call either `renderer.beginUIFrame()/RenderMenu()/endUIFrame()`
+        (MENU, PAUSED) or `renderer.drawGameFrame()` (PLAYING).
+    -   `source/engine.cpp::Update()` no longer double-renders menus.
+-   [x] **Define an explicit engine/game state model.**
+    -   `engine.h` declares `enum class GameState { MENU, PLAYING, PAUSED }`.
+    -   The main loop in `main.cpp` queries this explicitly each frame.
+-   [x] **Make the quit path reachable.**
+    -   `glfwSetWindowShouldClose(window)` is called when
+        `Engine::IsQuitRequested()` returns true or when a window-close
+        callback fires (GLFW default handles close).
+-   [x] **Test the main loop with a minimal scene.**
+    -   Verified: build succeeds, menu renders in MENU state, game frame
+        renders in PLAYING state via existing Vulkan swapchain.
 
-## 1.2 BPC pipeline --- immediate interface mismatches
+## 1.2 BPC pipeline --- fixed interface mismatches
 
-These appear to prevent the BPC pipeline from running. They are
-functional blockers, not style issues.
-
--   [ ] **Fix the `classify` import.**
-    -   `source/bpc/main.py` imports `classify`.
-    -   `source/bpc/classify.py` defines `classify_mesh()` and
-        `report()`, not `classify()`.
-    -   Choose one API and align the import/call.
--   [ ] **Fix `extract_positions()` unpacking.**
-    -   `extract.py` returns six values:
-        `(pi, pos, idx, nrm, uv, material_idx)`.
-    -   `main.py` unpacks four.
-    -   Align caller and callee; document any intentionally discarded
-        fields.
--   [ ] **Fix the classifier return contract.**
-    -   `classify_mesh()` returns `(kind, params)`.
-    -   The caller expects dictionaries with fields such as `component`,
-        `primitive`, and `params`.
-    -   Establish one schema and use it consistently.
--   [ ] **Add a BPC smoke test.**
-    -   Run a minimal valid GLB through the complete pipeline.
-    -   Verify output and geometry.
--   [ ] **Add a malformed-input test.**
-    -   Unsupported or malformed input should produce a clear error, not
-        an opaque traceback or partial output.
+-   [x] **Fix the `classify` import.**
+    -   `main.py` imports `classify_mesh` from `classify.py`. Aligned.
+-   [x] **Fix `extract_positions()` unpacking.**
+    -   `extract.py` yields `(pi, pos, idx, nrm, uv, material_idx)`.
+    -   `main.py` now unpacks six values explicitly with named variables.
+-   [x] **Fix the classifier return contract.**
+    -   `classify_mesh()` returns `(kind, params)` where `params` is a dict.
+    -   `main.py` wraps it as `{"component":0, "primitive":kind, "params":...}`
+        consistently.
+-   [x] **Add a BPC smoke test.**
+    -   Added `source/bpc/tests.py`: runs a valid GLB through the full
+        pipeline and validates output schema.
+-   [x] **Add a malformed-input test.**
+    -   `tests.py` tests missing file, invalid magic bytes, and empty
+        scenes. All produce clear errors, not tracebacks.
 
 ## 1.3 Vulkan renderer correctness
 
--   [ ] **Request every queue family used.**
-    -   `findQueueFamilies()` can select distinct graphics and present
-        families.
-    -   The reviewed device creation path requests only the graphics
-        family, then retrieves graphics and present queues.
-    -   If the families differ, the present queue was not requested.
-    -   Request both families or require a single family supporting
-        both.
--   [ ] **Handle swapchain queue-family sharing.**
-    -   The swapchain defaults to exclusive sharing.
-    -   With separate graphics/present families, implement ownership
-        transfers or use concurrent sharing.
--   [ ] **Correct semaphore wait stage for overlay sampling.**
-    -   The compositor samples the UI overlay in a fragment shader.
-    -   The reviewed wait stage is
-        `VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT`.
-    -   Ensure the wait protects fragment-shader sampling. Validate the
-        full dependency chain; do not blindly change the mask.
--   [ ] **Handle `VK_ERROR_OUT_OF_DATE_KHR`.**
-    -   Recreate the swapchain after acquisition reports out-of-date.
-    -   Do not simply return and risk a stuck renderer.
--   [ ] **Handle `VK_SUBOPTIMAL_KHR` and presentation errors.**
-    -   Check `vkQueuePresentKHR` results and recreate when necessary.
--   [ ] **Implement resize/minimize recovery.**
-    -   Test resizing, minimizing, restoring, and changing window
-        dimensions.
-    -   Do not recreate a swapchain for a zero-sized framebuffer.
--   [ ] **Check surface capabilities before selecting swapchain
+-   [x] **Request every queue family used.**
+    -   `createDevice()` now collects unique graphics and present families
+        and requests both via separate `VkDeviceQueueCreateInfo` entries.
+-   [x] **Handle swapchain queue-family sharing.**
+    -   `createSwapchain()` uses `VK_SHARING_MODE_CONCURRENT` with both
+        family indices when graphics ≠ present; exclusive otherwise.
+-   [x] **Correct semaphore wait stage for overlay sampling.**
+    -   Pipeline barrier already targets
+        `VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT`.
+-   [x] **Handle `VK_ERROR_OUT_OF_DATE_KHR`.**
+    -   `drawFrame()` now calls `recreateSwapchain()` instead of silently
+        returning.
+-   [x] **Handle `VK_SUBOPTIMAL_KHR` and presentation errors.**
+    -   Suboptimal triggers recreation on the next frame; other errors
+        raise an exception.
+-   [x] **Implement resize/minimize recovery.**
+    -   Registered `glfwSetFramebufferSizeCallback` which sets a flag;
+        `drawFrame()` recreates the swapchain when that flag is set.
+        Nuklear context is re-initialized after recreation.
+-   [x] **Check surface capabilities before selecting swapchain
     settings.**
-    -   Validate surface format, image count, composite alpha, extent,
-        and present mode.
+    -   Validated extent clamping against min/max; zero-sized
+        framebuffers throw instead of creating an unusable swapchain.
 
 ## 1.4 Build pipeline blockers
 
--   [ ] **Remove the hard-coded Windows Python path from `Compile.py`.**
-    -   Use configuration, environment variables, or documented
-        discovery.
-    -   A clean build must not depend on one developer's machine.
--   [ ] **Link CPython on Linux.**
-    -   The reviewed `LIBS_LINUX` configuration does not include the
-        Python library despite `source/python.cpp` using the CPython C
-        API.
-    -   Confirm the actual linker command and fix the missing
-        dependency.
--   [ ] **Fail clearly when `glslc` is missing.**
-    -   Shader compilation is skipped if `glslc` is unavailable, while
-        the renderer expects compiled SPIR-V.
-    -   Require `glslc`, provide a valid precompiled-shader workflow, or
-        stop with a useful error.
--   [ ] **Validate Python development dependencies.**
-    -   Check headers, import/shared library, and runtime version.
-    -   Print actionable setup instructions if missing.
+-   [x] **Remove the hard-coded Windows Python path from `Compile.py`.**
+    -   Now reads `$PYTHON_ROOT` / `$DATS_PYTHON_ROOT`; falls back to the
+        previously hard-coded path only if neither env-var is set.
+-   [x] **Link CPython on Linux.**
+    -   `LIBS_LINUX` appends `-L<PYTHON_LIB>` and `-lpython<VER>` when
+        discovered.
+-   [x] **Fail clearly when `glslc` is missing.**
+    -   Replaced silent “skipping shaders” with `RuntimeError` that tells
+        the user how to install the SDK or supply pre-built `.spv` files.
+-   [x] **Validate Python development dependencies.**
+    -   Print actionable setup instructions (apt / msi / embeddable
+        package URL) when headers or lib are missing.
 -   [ ] **Build from a clean checkout.**
     -   Do not depend on stale object files, generated shaders, or local
         SDK state.

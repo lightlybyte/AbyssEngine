@@ -22,19 +22,31 @@ def _serialize(v):
 
 
 def build_instructions(glb_path):
-    gltf, bin_blob = read_glb(glb_path)
+    """Load a GLB and emit classification instructions."""
+    try:
+        gltf, bin_blob = read_glb(glb_path)
+    except FileNotFoundError:
+        raise ValueError(f"GLB not found: {glb_path}")
+    except ValueError as e:
+        raise ValueError(f"Invalid GLB format: {e}")
+
     instructions = []
 
     for name, mesh_idx, world_M in walk_scene(gltf):
         results = extract_positions(gltf, bin_blob, mesh_idx)
-        for result in results:
-            prim_idx, positions, indices, normals, uvs, material_idx = result
+        for prim_idx, positions, indices, normals, uvs, material_idx in results:
             ones = np.ones((len(positions), 1))
             pos_w = (np.hstack([positions, ones]) @ world_M.T)[:, :3]
 
             nrm_w = None
             if normals is not None:
-                nrm_w = normals @ world_M[:3, :3].T
+                # Inverse-transpose normal matrix for non-uniform scale correctness
+                M = world_M[:3, :3]
+                try:
+                    inv_T = np.linalg.inv(M).T
+                except np.linalg.LinAlgError:
+                    inv_T = np.eye(3)
+                nrm_w = normals @ inv_T
                 n = np.linalg.norm(nrm_w, axis=1, keepdims=True)
                 nrm_w = nrm_w / np.maximum(n, 1e-12)
 
@@ -61,5 +73,10 @@ if __name__ == "__main__":
         print("Usage: python main.py <file.glb>")
         sys.exit(1)
 
-    result = build_instructions(sys.argv[1])
+    try:
+        result = build_instructions(sys.argv[1])
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(2)
+
     print(json.dumps(result, indent=2))

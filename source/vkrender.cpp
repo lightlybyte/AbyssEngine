@@ -130,18 +130,34 @@ struct VkRendererImpl {
 
     void createDevice() {
         auto q = findQueues(physicalDevice);
+        if (q.graphics == UINT32_MAX)
+            throw std::runtime_error("no graphics queue family");
+        if (q.present == UINT32_MAX)
+            throw std::runtime_error("no present queue family");
+
         float prio = 1.0f;
-        VkDeviceQueueCreateInfo qci{};
-        qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        qci.queueFamilyIndex = q.graphics;
-        qci.queueCount = 1;
-        qci.pQueuePriorities = &prio;
+
+        // Collect unique queue families to request
+        std::vector<uint32_t> families;
+        families.push_back(q.graphics);
+        if (q.present != q.graphics)
+            families.push_back(q.present);
+
+        std::vector<VkDeviceQueueCreateInfo> queueInfos;
+        for (uint32_t fam : families) {
+            VkDeviceQueueCreateInfo qci{};
+            qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            qci.queueFamilyIndex = fam;
+            qci.queueCount = 1;
+            qci.pQueuePriorities = &prio;
+            queueInfos.push_back(qci);
+        }
 
         const char* exts[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
         VkDeviceCreateInfo ci{};
         ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        ci.queueCreateInfoCount = 1;
-        ci.pQueueCreateInfos = &qci;
+        ci.queueCreateInfoCount = (uint32_t)queueInfos.size();
+        ci.pQueueCreateInfos = queueInfos.data();
         ci.enabledExtensionCount = 1;
         ci.ppEnabledExtensionNames = exts;
 
@@ -155,6 +171,12 @@ struct VkRendererImpl {
     void createSwapchain() {
         VkSurfaceCapabilitiesKHR caps;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &caps);
+
+        // Validate extent against surface limits
+        if (caps.minImageExtent.width > caps.maxImageExtent.width ||
+            caps.minImageExtent.height > caps.maxImageExtent.height) {
+            throw std::runtime_error("invalid surface capabilities");
+        }
 
         uint32_t formatCount;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr);
@@ -171,6 +193,10 @@ struct VkRendererImpl {
             extent.height = std::clamp((uint32_t)h, caps.minImageExtent.height, caps.maxImageExtent.height);
         }
 
+        // Do not create swapchain for zero-sized framebuffer
+        if (extent.width == 0 || extent.height == 0)
+            throw std::runtime_error("zero-sized framebuffer during swapchain creation");
+
         uint32_t imageCount = caps.minImageCount + 1;
 
         VkSwapchainCreateInfoKHR ci{};
@@ -182,6 +208,15 @@ struct VkRendererImpl {
         ci.imageExtent = extent;
         ci.imageArrayLayers = 1;
         ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        // Use concurrent sharing if graphics and present families differ
+        if (q.graphics != q.present) {
+            uint32_t queueFamilyIndices[] = { q.graphics, q.present };
+            ci.sharingMode = VK_SHARING_MODE_CONCURRENT;
+            ci.pQueueFamilyIndices = queueFamilyIndices;
+            ci.queueFamilyIndexCount = 2;
+        } else {
+            ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        }
         ci.preTransform = caps.currentTransform;
         ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         ci.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -495,6 +530,12 @@ struct VkRendererImpl {
 
     bool init(GLFWwindow* win, uint32_t w, uint32_t h) {
         window = win;
+        glfwSetWindowUserPointer(window, this);
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, int width, int height) {
+            void* ptr;
+            glfwGetWindowUserPointer(w, &ptr);
+            if (ptr) reinterpret_cast<VkRendererImpl*>(ptr)->swapChainSwapNeeded = true;
+        });
         try {
             createInstance();
             createSurface();
@@ -549,7 +590,18 @@ struct VkRendererImpl {
         VkResult r = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
                                            imageAvailableSemaphores[currentFrame],
                                            VK_NULL_HANDLE, &imageIndex);
-        if (r == VK_ERROR_OUT_OF_DATE_KHR) return;
+        if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreateSwapchain();
+            return;
+        }
+        if (swapChainSwapNeeded) {
+            recreateSwapchain();
+            swapChainSwapNeeded = false;
+            return;
+        }
+        if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("failed to acquire swapchain image!");
+        }
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
@@ -638,6 +690,69 @@ struct VkRendererImpl {
     double timeSeconds() const {
         auto now = std::chrono::high_resolution_clock::now();
         return std::chrono::duration<double>(now - startTime).count();
+    }
+
+    // Resize callback registered with GLFW
+    static void resizeCallback(GLFWwindow* w, int width, int height) {
+        void* ptr;
+        glfwGetWindowUserPointer(w, &ptr);
+        if (ptr) reinterpret_cast<VkRendererImpl*>(ptr)->swapChainSwapNeeded = true;
+    }
+
+    bool swapChainSwapNeeded = false;
+
+    void recreateSwapchain() {
+        vkDeviceWaitIdle(device);
+
+        if (swapChain) {
+            for (auto s : renderFinishedSemaphores)
+                vkDestroySemaphore(device, s, nullptr);
+            renderFinishedSemaphores.clear();
+            for (auto iv : overlayImageViews)
+                vkDestroyImageView(device, iv, nullptr);
+            overlayImageViews.clear();
+            for (auto im : overlayImageMemories)
+                vkFreeMemory(device, im, nullptr);
+            overlayImageMemories.clear();
+            for (auto img : overlayImages)
+                vkDestroyImage(device, img, nullptr);
+            overlayImages.clear();
+            for (auto fb : swapChainFramebuffers)
+                vkDestroyFramebuffer(device, fb, nullptr);
+            swapChainFramebuffers.clear();
+            for (auto iv : swapChainImageViews)
+                vkDestroyImageView(device, iv, nullptr);
+            swapChainImageViews.clear();
+            swapChainImages.clear();
+            vkDestroySwapchainKHR(device, swapChain, nullptr);
+            swapChain = VK_NULL_HANDLE;
+        }
+
+        createSwapchain();
+        createOverlayImages();
+        createImageViews();
+        createRenderPass();
+        createFramebuffers();
+        createDescriptorPool();
+        createOverlayPipeline();
+        createCommandBuffers();
+        createSyncObjects();
+
+        // Reinitialize nuklear with new swapchain images
+        auto q = findQueues(physicalDevice);
+        nk_glfw3_shutdown();
+        ctx = nk_glfw3_init(window, device, physicalDevice,
+                            q.graphics,
+                            overlayImageViews.data(), (uint32_t)overlayImageViews.size(),
+                            swapChainImageFormat,
+                            NK_GLFW3_INSTALL_CALLBACKS,
+                            512 * 1024, 128 * 1024);
+
+        struct nk_font_atlas* atlas;
+        nk_glfw3_font_stash_begin(&atlas);
+        struct nk_font* font = nk_font_atlas_add_default(atlas, 16, NULL);
+        nk_glfw3_font_stash_end(graphicsQueue);
+        nk_style_set_font(ctx, &font->handle);
     }
 
     ~VkRendererImpl() {

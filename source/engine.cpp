@@ -195,20 +195,15 @@ void RemovePhysicsBody(uint32_t id) { g_physicsWorld.removeBody(id); }
 
 void Update(VkRenderer& renderer, double dt) {
     if (g_state == GameState::MENU) {
-        // Menu state - update UI
+        // Menu state - update UI transition animations
         Ui::Update(0.0f);
-        renderer.beginUIFrame();
-        Engine::RenderMenu(renderer, renderer.ctx());
-        renderer.endUIFrame();
+        g_quitRequested = false;  // Handled in RenderMenu
     } else {
-        // Game state - update physics and rendering
+        // Game state - update physics, time, and UI
         g_gameTime += dt;
         g_physicsWorld.step(static_cast<float>(dt));
-        Ui::Update((float)dt);
-        renderer.beginUIFrame();
-        Engine::RenderMenu(renderer, renderer.ctx());
-        renderer.endUIFrame();
-        renderer.drawGameFrame();
+        Ui::Update(static_cast<float>(dt));
+        g_quitRequested = false;  // Handled in RenderMenu
     }
 }
 

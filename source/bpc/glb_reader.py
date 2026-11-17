@@ -38,6 +38,9 @@ def read_glb(path):
 
 
 def read_accessor(gltf, bin_blob, accessor_idx):
+    """Read a single accessor, with bounds checking."""
+    if accessor_idx < 0 or accessor_idx >= len(gltf.get("accessors", [])):
+        raise ValueError(f"Accessor index {accessor_idx} out of range")
     acc = gltf["accessors"][accessor_idx]
     n_comp = _TYPE_COUNT[acc["type"]]
     dtype = np.dtype(_COMPONENT_DTYPE[acc["componentType"]])
@@ -49,6 +52,15 @@ def read_accessor(gltf, bin_blob, accessor_idx):
     bv = gltf["bufferViews"][acc["bufferView"]]
     start = bv.get("byteOffset", 0) + acc.get("byteOffset", 0)
     stride = bv.get("byteStride") or (n_comp * dtype.itemsize)
+
+    # Validate offsets against buffer size
+    buf_size = len(bin_blob)
+    expected_end = start + count * stride
+    if expected_end > buf_size:
+        raise ValueError(
+            f"Buffer view overflow: need {expected_end} bytes, "
+            f"have {buf_size}"
+        )
 
     if stride == n_comp * dtype.itemsize:
         flat = np.frombuffer(bin_blob, dtype=dtype, count=count * n_comp, offset=start)
