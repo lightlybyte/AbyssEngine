@@ -158,7 +158,7 @@ static bool testBoxBox(const Body& a, const Body& b, Contact& c) {
     Vec3  ea = a.halfExtents;
     Vec3  eb = b.halfExtents;
 
-    Vec3  R[3][3];
+    float R[3][3];
     Real  absR[3][3];
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
