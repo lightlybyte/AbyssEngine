@@ -542,9 +542,8 @@ def _validate_embed_package(root):
 def _prepare_python_payload(build_dir):
     if not PYTHON_EMBED_ROOT.exists():
         log(f"embeddable package missing at {PYTHON_EMBED_ROOT}")
-        if PYTHON_DLL and PYTHON_DLL.exists():
-            shutil.copy2(str(PYTHON_DLL), str(build_dir / _dll_name()))
-            log(f"copied {_dll_name()} (fallback)")
+        log("falling back to system Python stdlib copy…")
+        _fallback_copy_stdlib_from_system(build_dir)
         return
     log("preparing Python embeddable payload…")
     problems = _validate_embed_package(PYTHON_EMBED_ROOT)
