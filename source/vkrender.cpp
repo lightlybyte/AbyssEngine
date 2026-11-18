@@ -13,19 +13,11 @@
 #include <cstring>
 #include <fstream>
 
-// --- NUKLEAR SETUP ---
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-
-#define NK_IMPLEMENTATION
-#include "nuklear.h"
-
-#define NK_GLFW_VULKAN_IMPLEMENTATION
-#include "nuklear_glfw_vulkan.h"
+// --- IMGUI SETUP ---
+#define IMGUI_DEFINE Vulkan
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 
 struct VkRendererImpl {
     static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -66,7 +58,8 @@ struct VkRendererImpl {
     VkPipeline overlayGraphicsPipeline = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> overlayDescriptorSets;
 
-    struct nk_context* ctx = nullptr;
+    ImTextureID user_data;
+    struct ImGuiContext* ctx = nullptr;
     std::chrono::high_resolution_clock::time_point startTime;
     bool vsyncEnabled = false;
     
@@ -559,20 +552,27 @@ struct VkRendererImpl {
             auto q = findQueues(physicalDevice);
             if (q.graphics == UINT32_MAX) throw std::runtime_error("Invalid queue");
 
-            ctx = nk_glfw3_init(window, device, physicalDevice,
-                                q.graphics,
-                                overlayImageViews.data(), (uint32_t)overlayImageViews.size(),
-                                swapChainImageFormat,
-                                NK_GLFW3_INSTALL_CALLBACKS,
-                                512 * 1024, 128 * 1024);
-
-            if (!ctx) throw std::runtime_error("Nuklear init failed");
-
-            struct nk_font_atlas* atlas;
-            nk_glfw3_font_stash_begin(&atlas);
-            struct nk_font* font = nk_font_atlas_add_default(atlas, 16, NULL);
-            nk_glfw3_font_stash_end(graphicsQueue);
-            nk_style_set_font(ctx, &font->handle);
+            ctx = (ImGuiContext*)IM_NEW(ImGuiContext)();
+            ImGui::CreateContext();
+            ImGuiIO& io = ImGui::GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+            ImGui::StyleColorsDark();
+            ImGui_ImplGlfw_InitForVulkan(window, true);
+            ImGui_ImplVulkan_InitInfo init_info = {};
+            init_info.Instance = instance;
+            init_info.PhysicalDevice = physicalDevice;
+            init_info.Device = device;
+            init_info.QueueFamily = q.graphics;
+            init_info.Queue = graphicsQueue;
+            init_info.PipelineCache = VK_NULL_HANDLE;
+            init_info.DescriptorPool = descriptorPool;
+            init_info.MinImageCount = 2;
+            init_info.ImageCount = (uint32_t)swapChainImages.size();
+            init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            init_info.Allocator = nullptr;
+            init_info.CheckVkResultFn = nullptr;
+            ImGui_ImplVulkan_Init(&init_info, renderPass);
+            ImGui_ImplVulkan_CreateFontsTexture();
 
             startTime = std::chrono::high_resolution_clock::now();
             return true;
@@ -609,9 +609,8 @@ struct VkRendererImpl {
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
-        VkSemaphore uiSemaphore = nk_glfw3_render(graphicsQueue, imageIndex,
-                                                  imageAvailableSemaphores[currentFrame],
-                                                  NK_ANTI_ALIASING_ON);
+        VkSemaphore uiSemaphore = VK_NULL_HANDLE;
+        (void)uiSemaphore;
 
         VkCommandBuffer cb = commandBuffers[currentFrame];
         vkResetCommandBuffer(cb, 0);
@@ -686,11 +685,8 @@ struct VkRendererImpl {
     }
 
     void drawGameFrame() { drawFrame(); }
-    void beginUIFrame() {
-        if (ctx) nk_clear(ctx);
-        nk_glfw3_new_frame();
-    }
-    void endUIFrame() { drawFrame(); }
+    void newFrame() { ImGui::NewFrame(); ImGui_ImplGlfw_NewFrame(); }
+    void renderDrawData(ImDrawData* draw_data) { ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffers[currentFrame]); }
     bool shouldClose() const { return glfwWindowShouldClose(window); }
     void pollEvents() { glfwPollEvents(); }
     void waitIdle() { vkDeviceWaitIdle(device); }
@@ -745,26 +741,42 @@ struct VkRendererImpl {
         createCommandBuffers();
         createSyncObjects();
 
-        // Reinitialize nuklear with new swapchain images
+        // Reinitialize ImGui with new swapchain images
         auto q = findQueues(physicalDevice);
-        nk_glfw3_shutdown();
-        ctx = nk_glfw3_init(window, device, physicalDevice,
-                            q.graphics,
-                            overlayImageViews.data(), (uint32_t)overlayImageViews.size(),
-                            swapChainImageFormat,
-                            NK_GLFW3_INSTALL_CALLBACKS,
-                            512 * 1024, 128 * 1024);
-
-        struct nk_font_atlas* atlas;
-        nk_glfw3_font_stash_begin(&atlas);
-        struct nk_font* font = nk_font_atlas_add_default(atlas, 16, NULL);
-        nk_glfw3_font_stash_end(graphicsQueue);
-        nk_style_set_font(ctx, &font->handle);
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        ctx = (ImGuiContext*)IM_NEW(ImGuiContext)();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        ImGui::StyleColorsDark();
+        ImGui_ImplGlfw_InitForVulkan(window, true);
+        ImGui_ImplVulkan_InitInfo init_info = {};
+        init_info.Instance = instance;
+        init_info.PhysicalDevice = physicalDevice;
+        init_info.Device = device;
+        init_info.QueueFamily = q.graphics;
+        init_info.Queue = graphicsQueue;
+        init_info.PipelineCache = VK_NULL_HANDLE;
+        init_info.DescriptorPool = descriptorPool;
+        init_info.MinImageCount = 2;
+        init_info.ImageCount = (uint32_t)swapChainImages.size();
+        init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+        init_info.Allocator = nullptr;
+        init_info.CheckVkResultFn = nullptr;
+        ImGui_ImplVulkan_Init(&init_info, renderPass);
+        ImGui_ImplVulkan_CreateFontsTexture();
     }
 
     ~VkRendererImpl() {
         vkDeviceWaitIdle(device);
-        if (ctx) nk_glfw3_shutdown();
+        if (ctx) {
+            ImGui_ImplVulkan_Shutdown();
+            ImGui_ImplGlfw_Shutdown();
+            ImGui::DestroyContext();
+            ctx = nullptr;
+        }
 
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -797,13 +809,12 @@ VkRenderer::~VkRenderer() { delete impl; }
 bool VkRenderer::init(GLFWwindow* window, uint32_t w, uint32_t h) { return impl->init(window, w, h); }
 void VkRenderer::drawFrame() { impl->drawFrame(); }
 void VkRenderer::drawGameFrame() { impl->drawGameFrame(); }
-void VkRenderer::beginUIFrame() { impl->beginUIFrame(); }
-void VkRenderer::endUIFrame() { impl->endUIFrame(); }
+void VkRenderer::newFrame() { impl->newFrame(); }
+void VkRenderer::renderDrawData(ImDrawData* draw_data) { impl->renderDrawData(draw_data); }
 bool VkRenderer::shouldClose() const { return impl->shouldClose(); }
 void VkRenderer::pollEvents() { impl->pollEvents(); }
 void VkRenderer::waitIdle() { impl->waitIdle(); }
 double VkRenderer::timeSeconds() const { return impl->timeSeconds(); }
-struct nk_context* VkRenderer::ctx() const { return impl->ctx; }
 void VkRenderer::setVSync(bool enabled) { impl->setVSync(enabled); }
 uint32_t VkRenderer::createMesh(const std::vector<VkVertex>& v, const std::vector<uint32_t>& i) { return 0; }
 uint32_t VkRenderer::createTexture(const unsigned char* p, int w, int h) { return 0; }

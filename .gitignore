@@ -102,4 +102,5 @@ bin/
 *.pfx
 secrets.json
 .env
-.env.local
+.env.local'imgui_tmp/'  
+'_*.py'  

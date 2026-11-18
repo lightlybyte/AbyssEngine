@@ -93,9 +93,9 @@ int main() {
 
         if (state == GameState::MENU) {
             Engine::Update(renderer, dt);
-            renderer.beginUIFrame();
-            Engine::RenderMenu(renderer, renderer.ctx());
-            renderer.endUIFrame();
+            renderer.newFrame();
+            Ui::Render(renderer, state, 1280, 720, window);
+            renderer.renderDrawData(ImGui::GetDrawData());
         } else if (state == GameState::PLAYING) {
             Engine::Update(renderer, dt);
             renderer.drawGameFrame();

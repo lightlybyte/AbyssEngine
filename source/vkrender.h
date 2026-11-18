@@ -7,7 +7,7 @@
 
 struct GLFWwindow;
 struct VkRendererImpl;
-struct nk_context;
+struct ImDrawData;
 
 struct VkVertex {
     glm::vec3 pos;
@@ -33,15 +33,13 @@ public:
     void drawFrame();
     void drawGameFrame();
 
-    void beginUIFrame();
-    void endUIFrame();
+    void newFrame();
+    void renderDrawData(ImDrawData* draw_data);
 
     bool shouldClose() const;
     void pollEvents();
     void waitIdle();
     double timeSeconds() const;
-
-    struct nk_context* ctx() const;
 
     void setVSync(bool enabled);
 
