@@ -202,6 +202,13 @@ ENGINE_CPP = [
     str(SOURCE / "python.cpp"),
     str(SOURCE / "ui.cpp"),
     str(SOURCE / "physics.cpp"),
+    str(SOURCE / "ui.cpp"),
+    str(SOURCE / "vkrender.cpp"),
+    str(SOURCE / "main.cpp"),
+    str(SOURCE / "python.cpp"),
+    str(SOURCE / "imgui/imgui.cpp"),
+    str(SOURCE / "imgui/imgui_impl_glfw.cpp"),
+    str(SOURCE / "imgui/imgui_impl_vulkan.cpp"),
 ]
 
 def _preflight_shadow_check():
