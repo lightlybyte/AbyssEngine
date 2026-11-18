@@ -686,7 +686,10 @@ struct VkRendererImpl {
     }
 
     void drawGameFrame() { drawFrame(); }
-    void beginUIFrame() { nk_glfw3_new_frame(); }
+    void beginUIFrame() {
+        if (ctx) nk_clear(ctx);
+        nk_glfw3_new_frame();
+    }
     void endUIFrame() { drawFrame(); }
     bool shouldClose() const { return glfwWindowShouldClose(window); }
     void pollEvents() { glfwPollEvents(); }
