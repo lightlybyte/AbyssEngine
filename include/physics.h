@@ -93,6 +93,24 @@ struct Body {
 };
 
 // ===========================================================================
+// DeformableBody - Hierarchical JBeam-style hitbox splitting
+// Starts as ONE massive hitbox. On energetic impact, spawns child fragments
+// at impact site. Force distributed inversely proportional to distance.
+// ===========================================================================
+struct DeformableBody {
+    Body root;
+    std::vector<Body> children;
+    uint32_t ownerWorldId = UINT32_MAX;
+    int depth = 0;
+    Real splitThreshold = 500.0f;
+    bool isFullySplit = false;
+    void resetForces() {
+        root.forceAccum = {0,0,0}; root.torqueAccum = {0,0,0};
+        for (auto& c : children) { c.forceAccum = {0,0,0}; c.torqueAccum = {0,0,0}; }
+    }
+};
+
+// ===========================================================================
 // Physics World
 // ===========================================================================
 class World {
@@ -112,6 +130,12 @@ public:
     // Accessors
     const std::vector<Contact>& contacts() const { return contacts_; }
     size_t bodyCount() const { return bodies_.size(); }
+
+    // Deformable body management
+    uint32_t addDeformable(const Body& r);
+    void removeDeformable(uint32_t id);
+    DeformableBody* getDeformable(uint32_t id);
+    const DeformableBody* getDeformable(uint32_t id) const;
     
     // Raycasting
     std::optional<std::pair<uint32_t, Vec3>> raycast(
@@ -120,6 +144,7 @@ public:
 private:
     std::vector<Body> bodies_;
     std::vector<Contact> contacts_;
+    std::vector<DeformableBody> deformables_;
     
     // Spatial hash grid for broad phase
     struct Cell {
@@ -144,10 +169,13 @@ private:
     void narrowPhase();
     void resolveContacts(Real dt, int iterations);
     void updateSleeping(Real dt);
+    void processDeformableImpacts(Real dt);
+    std::vector<uint32_t> splitDeformable(int didx, const Vec3& pos, const Vec3& impulse);
     
     // Sleeping thresholds
     static constexpr Real kSleepThreshold = 0.01f;
     static constexpr Real kSleepTime = 0.5f;
+    static constexpr int MAX_SPLIT_DEPTH = 5;
 };
 
 } // namespace Phys

@@ -55,6 +55,7 @@ void World::step(Real dt) {
         broadPhase();
         narrowPhase();
         resolveContacts(h, 8);
+        processDeformableImpacts(h);
         updateSleeping(h);
         remaining -= h;
         ++subSteps;
@@ -405,6 +406,158 @@ std::optional<std::pair<uint32_t, Vec3>> World::raycast(
 
     if (bestId == UINT32_MAX) return std::nullopt;
     return std::make_pair(bestId, origin + dir * bestT);
+}
+
+// ===========================================================================
+// Deformable Body Management
+// ===========================================================================
+uint32_t World::addDeformable(const Body& rootBody) {
+    bodies_.push_back(rootBody);
+    uint32_t id = static_cast<uint32_t>(bodies_.size() - 1);
+    
+    DeformableBody db;
+    db.root = rootBody;
+    db.root.id = id;
+    db.ownerWorldId = id;
+    db.depth = 0;
+    deformables_.push_back(db);
+    
+    return id;
+}
+
+void World::removeDeformable(uint32_t id) {
+    for (auto it = deformables_.begin(); it != deformables_.end(); ++it) {
+        if (it->ownerWorldId == id) {
+            for (auto& child : it->children) {
+                for (auto bit = bodies_.begin(); bit != bodies_.end(); ++bit) {
+                    if (bit->id == child.id) { bodies_.erase(bit); break; }
+                }
+            }
+            for (auto it2 = bodies_.begin(); it2 != bodies_.end(); ++it2) {
+                if (it2->id == id) { bodies_.erase(it2); break; }
+            }
+            deformables_.erase(it);
+            return;
+        }
+    }
+}
+
+DeformableBody* World::getDeformable(uint32_t id) {
+    for (auto& db : deformables_) {
+        if (db.ownerWorldId == id || db.root.id == id) return &db;
+        for (auto& child : db.children) {
+            if (child.id == id) return &db;
+        }
+    }
+    return nullptr;
+}
+
+const DeformableBody* World::getDeformable(uint32_t id) const {
+    for (const auto& db : deformables_) {
+        if (db.ownerWorldId == id || db.root.id == id) return &db;
+        for (const auto& child : db.children) {
+            if (child.id == id) return &db;
+        }
+    }
+    return nullptr;
+}
+
+// ===========================================================================
+// Split Logic - JBeam-style hierarchical fragmentation
+// ===========================================================================
+std::vector<uint32_t> World::splitDeformable(int didx, const Vec3& worldPos, const Vec3& impulse) {
+    if (didx < 0 || didx >= static_cast<int>(deformables_.size())) return {};
+    
+    DeformableBody& db = deformables_[didx];
+    if (db.isFullySplit || db.depth >= MAX_SPLIT_DEPTH) return {};
+    
+    Real impactEnergy = glm::length(impulse) * glm::length(impulse);
+    if (impactEnergy < db.splitThreshold) return {};
+    
+    std::vector<uint32_t> newIds;
+    Vec3 normal = glm::normalize(impulse);
+    if (glm::length(normal) < kEps) normal = {0, 1, 0};
+    
+    int numChildren = std::min(2 + db.depth, 4);
+    Real childMass = db.root.mass / (numChildren + 1);
+    
+    for (int i = 0; i < numChildren; ++i) {
+        float angle = (i / static_cast<float>(numChildren)) * 2.0f * glm::pi<float>();
+        Vec3 offset = Vec3(
+            cos(angle) * db.root.halfExtents.x * 0.5f,
+            sin(angle) * db.root.halfExtents.y * 0.5f,
+            (i % 2 == 0 ? 1 : -1) * db.root.halfExtents.z * 0.3f
+        );
+        
+        Body child = db.root;
+        child.position = worldPos + offset;
+        child.mass = childMass;
+        child.invMass = 1.0f / childMass;
+        child.linearVelocity = {0, 0, 0};
+        child.angularVelocity = {0, 0, 0};
+        child.shape = ShapeType::BOX;
+        child.halfExtents = db.root.halfExtents * 0.5f;
+        child.updateAABB();
+        
+        Real dist = glm::length(child.position - worldPos);
+        Real weight = 1.0f / (1.0f + dist);
+        Vec3 childImpulse = impulse * weight / static_cast<Real>(numChildren);
+        child.linearVelocity = childImpulse * child.invMass;
+        
+        bodies_.push_back(child);
+        uint32_t childId = static_cast<uint32_t>(bodies_.size() - 1);
+        newIds.push_back(childId);
+        db.children.push_back(child);
+        db.children.back().id = childId;
+    }
+    
+    db.root.mass *= 0.7f;
+    db.root.invMass = 1.0f / db.root.mass;
+    db.root.linearVelocity -= impulse * 0.3f * db.root.invMass;
+    
+    if (db.children.size() >= 4) db.isFullySplit = true;
+    
+    return newIds;
+}
+
+void World::processDeformableImpacts(Real dt) {
+    for (auto& contact : contacts_) {
+        if (contact.depth > 0.1f) {
+            Body* bodyA = getBody(contact.bodyA);
+            Body* bodyB = getBody(contact.bodyB);
+            if (!bodyA || !bodyB) continue;
+            
+            Vec3 relVel = bodyA->linearVelocity - bodyB->linearVelocity;
+            Real impactSpeed = glm::length(relVel);
+            
+            if (impactSpeed > 5.0f) {
+                for (auto& db : deformables_) {
+                    if (db.root.id == bodyA->id || db.root.id == bodyB->id) {
+                        Vec3 impulse = relVel * db.root.mass * 0.5f;
+                        splitDeformable(&db - deformables_.data(), contact.point, impulse);
+                        break;
+                    }
+                    for (auto& child : db.children) {
+                        if (child.id == bodyA->id || child.id == bodyB->id) {
+                            Vec3 impulse = relVel * child.mass * 0.5f;
+                            // Try splitting this child fragment
+                            for (size_t j = 0; j < bodies_.size(); ++j) {
+                                if (bodies_[j].id == child.id) {
+                                    Body tempChild = child;
+                                    tempChild.id = bodies_[j].id;
+                                    uint32_t newDbIdx = addDeformable(tempChild);
+                                    Vec3 imp = relVel * tempChild.mass * 0.3f;
+                                    splitDeformable(static_cast<int>(deformables_.size()) - 1, contact.point, imp);
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 } // namespace Phys
