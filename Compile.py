@@ -581,6 +581,13 @@ def _prepare_python_payload(build_dir):
             log(f"copied {_dll_name()} (fallback)")
     log(f"payload OK ({_zip_name()} + {_pth_name()} + {_dll_name()})")
 
+    # Also copy Scripts/ from system Python so pip and console tools are available
+    scripts_src = PYTHON_ROOT / "Scripts" if PYTHON_ROOT else None
+    if scripts_src and scripts_src.exists():
+        scripts_dest = build_dir / "Scripts"
+        log(f"  copying {scripts_src} -> {scripts_dest}")
+        shutil.copytree(str(scripts_src), str(scripts_dest), dirs_exist_ok=True)
+
 def _fallback_copy_stdlib_from_system(build_dir):
     if not PYTHON_ROOT:
         log("  no system Python found either — cannot recover")
@@ -592,6 +599,13 @@ def _fallback_copy_stdlib_from_system(build_dir):
     lib_dest = build_dir / "Lib"
     log(f"  copying {lib_src} → {lib_dest} (this takes a moment)")
     shutil.copytree(str(lib_src), str(lib_dest), dirs_exist_ok=True)
+
+    # Also copy Scripts/ from system Python for pip and console tools
+    scripts_src = PYTHON_ROOT / "Scripts"
+    if scripts_src.exists():
+        scripts_dest = build_dir / "Scripts"
+        log(f"  copying {scripts_src} -> {scripts_dest}")
+        shutil.copytree(str(scripts_src), str(scripts_dest), dirs_exist_ok=True)
     if PYTHON_DLL and PYTHON_DLL.exists():
         shutil.copy2(str(PYTHON_DLL), str(build_dir / _dll_name()))
         log(f"  copied {_dll_name()}")
