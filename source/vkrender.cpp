@@ -759,6 +759,7 @@ struct VkRendererImpl {
         init_info.ImageCount = (uint32_t)swapChainImages.size();
         init_info.Allocator = nullptr;
         init_info.CheckVkResultFn = nullptr;
+        init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         ImGui_ImplVulkan_Init(&init_info);
     }
 
