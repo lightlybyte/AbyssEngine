@@ -96,7 +96,7 @@ void Render(VkRenderer& renderer, Screen screen, int w, int h, GLFWwindow* windo
     ImGui::BeginChild("content", ImVec2(0,0), true);
     {
         ImGui::TextColored(ImVec4(232/255.0f,232/255.0f,232/255.0f,1), ScreenLabel(screen));
-        ImGui::SameLine(); ImGui::.SetCursorPosX(400);
+        ImGui::SameLine(); ImGui::SetCursorPosX(400);
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "ONLINE");
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), ScreenSubtitle(screen));
@@ -146,7 +146,6 @@ static void DrawContentArea(Screen screen) {
             const R rows[]={{"001","Monomo","IN PROGRESS"},{"002","Regeneration","UNLOCKED"},{"003","Alternate","UNLOCKED"},{"004","Annihilation","UNLOCKED"}};
             for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::SetCursorPosX(400);ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
             break;
-        }
         case Screen::Credits: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"CREDITS");
             ImGui::Spacing();
