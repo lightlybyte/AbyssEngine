@@ -42,7 +42,7 @@ namespace Engine {
 
     void Update(VkRenderer& renderer, double dt);
     void RenderGame(VkRenderer& renderer);
-    void RenderMenu(VkRenderer& renderer, struct nk_context* ctx);
+    void RenderMenu(VkRenderer& renderer);
 
     void ExecutePythonCommand(const std::string& command);
     bool IsPythonInitialized();

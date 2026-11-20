@@ -144,8 +144,9 @@ static void DrawContentArea(Screen screen) {
             ImGui::Spacing();
             struct R{const char*c;const char*n;const char*s;};
             const R rows[]={{"001","Monomo","IN PROGRESS"},{"002","Regeneration","UNLOCKED"},{"003","Alternate","UNLOCKED"},{"004","Annihilation","UNLOCKED"}};
-            for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::.SetCursorPosX(400);ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
+            for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::SetCursorPosX(400);ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
             break;
+        }
         case Screen::Credits: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"CREDITS");
             ImGui::Spacing();
@@ -156,6 +157,7 @@ static void DrawContentArea(Screen screen) {
             ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"No flags. No bad guys. Just humans.");
             break;
+        }
         case Screen::Login: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"LOGIN");
             ImGui::Spacing();
@@ -170,6 +172,7 @@ static void DrawContentArea(Screen screen) {
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Owner account: lightlybyte / DivineAsiegbu123");
             break;
+        }
         case Screen::Profile: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"PROFILE");
             ImGui::Spacing();
@@ -182,6 +185,7 @@ static void DrawContentArea(Screen screen) {
             ImGui::SameLine();
             if(ImGui::Button("LOGOUT"))Engine::ExecutePythonCommand("engine_clear_loggedin()");
             break;
+        }
         default: break;
     }
 }

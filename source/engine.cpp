@@ -261,7 +261,17 @@ void RenderMenu(VkRenderer& renderer) {
         if (w <= 0 || h <= 0) { w = 1280; h = 720; }
     }
 
-    Ui::Render(renderer, g_menuScreen, w, h, g_window);
+    Ui::Screen screen = Ui::Screen::Main;
+    switch(g_menuScreen) {
+        case MenuScreen::MAIN: screen = Ui::Screen::Main; break;
+        case MenuScreen::SETTINGS: screen = Ui::Screen::Settings; break;
+        case MenuScreen::PYTHON_CONSOLE: screen = Ui::Screen::Console; break;
+        case MenuScreen::CREDITS: screen = Ui::Screen::Credits; break;
+        case MenuScreen::LOGIN: screen = Ui::Screen::Login; break;
+        case MenuScreen::PROFILE: screen = Ui::Screen::Profile; break;
+        default: screen = Ui::Screen::Main; break;
+    }
+    Ui::Render(renderer, screen, w, h, g_window);
 
     if (g_quitRequested && g_window) {
         glfwSetWindowShouldClose(g_window, GLFW_TRUE);

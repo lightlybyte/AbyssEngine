@@ -100,7 +100,7 @@ int main() {
         if (state == GameState::MENU || state == GameState::PAUSED) {
             Engine::Update(renderer, dt);
             renderer.newFrame();
-            Ui::Render(renderer, ToUi(g_menuScreen), w, h, window);
+            Ui::Render(renderer, (Ui::Screen)(Engine::GetMenuScreen()), w, h, window);
                     } else if (state == GameState::PLAYING) {
             Engine::Update(renderer, dt);
             renderer.drawGameFrame();
