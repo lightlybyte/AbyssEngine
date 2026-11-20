@@ -1,23 +1,45 @@
+// Realistic terrain animation shader with earth-like lighting
 #version 450
 
-// Minimal animation fragment shader
 layout(location = 0) in vec3 vWorldPos;
 layout(location = 1) in vec3 vNormal;
 layout(location = 2) in vec2 vUV;
+layout(location = 3) in vec4 vColor;
 
 layout(location = 0) out vec4 outColor;
 
-void main() {
-    // Simple diffuse lighting
-    vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-    float diff = max(dot(normalize(vNormal), lightDir), 0.0);
-    
-    // Checkered pattern for visibility
-    vec2 check = step(0.5, fract(vUV * 4.0));
-    float checker = mix(check.x, check.y, check.y);
-    vec3 color = mix(vec3(0.8, 0.6, 0.4), vec3(0.3, 0.3, 0.3), checker);
-    
-    color *= (0.3 + 0.7 * diff);
-    outColor = vec4(color, 1.0);
-}
+uniform float time;
 
+const vec3 sunDir = normalize(vec3(0.4, 0.9, 0.3));
+const vec3 ambient = vec3(0.12, 0.15, 0.22);
+const vec3 sunCol = vec3(1.0, 0.92, 0.78);
+const vec3 fogCol = vec3(0.7, 0.78, 0.88);
+
+void main() {
+    vec3 N = normalize(vNormal);
+    vec3 L = sunDir;
+    
+    float diff = max(dot(N, L), 0.0);
+    
+    // Simple animated water effect for low areas
+    vec3 V = normalize(-vWorldPos);
+    vec3 H = normalize(L + V);
+    float spec = pow(max(dot(N, H), 0.0), 64.0) * 0.4;
+    
+    // Height-based coloring
+    float height = fract(vWorldPos.y * 0.05 + time * 0.01);
+    vec3 sand = vec3(0.76, 0.68, 0.52);
+    vec3 grass = vec3(0.18, 0.38, 0.15);
+    vec3 water = vec3(0.1, 0.3, 0.5);
+    
+    vec3 color = mix(water, sand, smoothstep(0.0, 0.2, height));
+    color = mix(color, grass, smoothstep(0.2, 0.5, height));
+    
+    // Distance fog
+    float fogF = smoothstep(30.0, 200.0, length(vWorldPos));
+    
+    vec3 lit = color * (ambient + sunCol * diff) + sunCol * spec;
+    lit = mix(lit, fogCol, fogF);
+    
+    outColor = vec4(lit, 1.0);
+}
