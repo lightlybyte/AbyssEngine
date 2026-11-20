@@ -1,37 +1,381 @@
-DATS SOURCE-AVAILABLE LICENSE (DSAL)
-Version 1.0
-Copyright (c) 2026 lightlybyt. All Rights Reserved.
+# DYNAMI SOFTWARE AND SOURCE-AVAILABLE LICENCE
+**Version 2.0**
 
-1. DEFINITIONS
-"Software" means the DATS game, the Abyss Engine, and all associated source code, object code, assets, and documentation. "Licensor" means lightlybyt. "Licensee" means any individual or entity exercising rights under this License.
+**Copyright © 2026 lightlybyt. All rights reserved.**
 
-2. GRANT OF LICENSE
-Subject to the terms and conditions of this License, the Licensor hereby grants the Licensee a worldwide, royalty-free, non-exclusive, non-transferable license to:
-(a) Use and execute the Software for personal, non-commercial entertainment purposes;
-(b) Reproduce, modify, and create derivative works of the Software's source code for personal, non-commercial use; and
-(c) Distribute the original Software or derivative works thereof, strictly on a non-commercial basis, provided that any such distribution includes this License and the original copyright notice.
+This Licence governs the access, use, modification, reproduction and distribution of Dynami, including the Dynami game series, the Abyss Engine, associated development tools, source code, object code, assets, documentation and other materials made available by the Licensor.
 
-3. RESTRICTIONS ON COMMERCIAL USE
-The Licensee expressly agrees that the rights granted under Section 2 do not include, and the Licensee shall not engage in, any of the following:
-(a) The sale, lease, rental, sublicense, or any other commercial exploitation of the Software, its source code, or its assets;
-(b) The incorporation of the Software or any derivative work into any commercial product, service, or application offered for monetary compensation;
-(c) The distribution of the Software or its derivatives on any commercial storefront (including but not limited to Steam, Epic Games Store, or the Apple App Store) for a fee; or
-(d) The use of the Abyss Engine to develop any commercial software without the prior express written consent of the Licensor.
+By downloading, installing, accessing, modifying, reproducing or distributing any portion of the Software, the Licensee acknowledges that they have read, understood and agreed to the terms of this Licence.
 
-4. MODIFICATION AND MODDING
-Modifications and derivative works intended for use within the Unified DATS Modding (UDM) platform are permitted and may be distributed freely. The Licensee is strictly prohibited from monetizing, paywalling, or otherwise commercially exploiting any modifications or derivative works.
+If the Licensee does not agree to these terms, they must not use, copy, modify or distribute the Software.
 
-5. INTELLECTUAL PROPERTY AND CONTRIBUTIONS
-The Licensor retains all right, title, and interest in and to the Software, including all intellectual property rights. Any contributions submitted to the official repository shall be deemed licensed to the Licensor under the terms of this License, granting the Licensor a perpetual, irrevocable, worldwide, royalty-free right to use, modify, and distribute such contributions.
+---
 
-6. TERM AND TERMINATION
-This License is effective until terminated. The Licensee's rights under this License will terminate automatically without notice if the Licensee fails to comply with any term(s) of this License. Upon termination, the Licensee must cease all use and distribution of the Software and destroy all copies in their possession.
+## 1. DEFINITIONS AND INTERPRETATION
 
-7. DISCLAIMER OF WARRANTY
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+For the purposes of this Licence, the following terms shall have the meanings assigned to them below.
 
-8. LIMITATION OF LIABILITY
-IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+**1.1. "Licensor"** means lightlybyt, being the individual or entity holding the applicable rights to the Software.
 
-9. GOVERNING LAW
-This License shall be governed by and construed in accordance with the laws of the Licensor's jurisdiction, without regard to its conflict of law provisions.
+**1.2. "Licensee"** means any individual, organisation, company, institution or other legal entity that exercises any rights granted under this Licence.
+
+**1.3. "Software"** means Dynami and all associated software components made available by the Licensor, including but not limited to:
+
+- The Dynami game series, including Dynami 20.02 and subsequent releases.
+- The Abyss Engine and its associated runtime systems.
+- Source code, object code, compiled binaries and libraries owned by the Licensor.
+- Development tools, build systems, scripts and utilities.
+- Graphics, textures, models, animations, audio and other original assets.
+- Documentation, technical specifications and accompanying materials.
+
+**1.4. "Source Code"** means the human-readable programming instructions, scripts, configuration files, build instructions and other materials used to develop, compile or operate the Software.
+
+**1.5. "Assets"** means all visual, auditory and other creative materials distributed as part of the Software, including textures, models, sound effects, music, animations, interface elements and related resources.
+
+**1.6. "Derivative Work"** means any work that modifies, adapts, translates, extends, incorporates or otherwise derives from the Software or a substantial portion thereof, to the extent recognised under applicable intellectual property law.
+
+**1.7. "Modification"** means any alteration, addition, removal, adaptation, translation, optimisation or other change made to the Software.
+
+**1.8. "Commercial Use"** means any use primarily intended for, or directed toward, commercial advantage or monetary compensation, whether directly or indirectly.
+
+**1.9. "UDM"** means Unified Dynami Modding, the designated modding platform and associated ecosystem, where applicable.
+
+**1.10. "Third-Party Components"** means any software, libraries, assets, tools or other materials that are not owned by the Licensor and are incorporated into, distributed alongside or otherwise associated with the Software.
+
+---
+
+## 2. GRANT OF RIGHTS
+
+Subject to the terms, conditions and restrictions of this Licence, the Licensor grants the Licensee a worldwide, royalty-free, non-exclusive, non-transferable and revocable licence to exercise the following rights:
+
+**2.1. Personal Use**
+
+The Licensee may:
+
+(a) Download, install, execute and use the Software for personal purposes.
+
+(b) Access and examine the Software's Source Code for educational, research, inspection and development purposes.
+
+(c) Run the Software on any compatible device or operating system, subject to applicable technical requirements.
+
+**2.2. Modification**
+
+The Licensee may:
+
+(a) Modify, adapt, translate and extend the Source Code for personal, educational and non-commercial purposes.
+
+(b) Create Derivative Works of the Software.
+
+(c) Develop personal tools, utilities and extensions that interact with the Software.
+
+(d) Experiment with, study and implement modifications to the Abyss Engine, provided that such activities remain within the restrictions of this Licence.
+
+**2.3. Non-Commercial Distribution**
+
+The Licensee may redistribute the original Software and permitted Derivative Works, provided that:
+
+(a) The distribution is strictly non-commercial.
+
+(b) This Licence is included in its entirety.
+
+(c) All applicable original copyright notices and attribution information are retained.
+
+(d) The distribution does not misrepresent the Licensee as the original author, developer or rights holder.
+
+(e) Any modifications are clearly identified as modifications and are not falsely represented as official releases.
+
+(f) The distribution does not infringe upon the rights of third parties.
+
+**2.4. No Implied Rights**
+
+No rights are granted except those expressly stated in this Licence. All rights not expressly granted are reserved by the Licensor.
+
+---
+
+## 3. COMMERCIAL RESTRICTIONS
+
+**3.1. General Prohibition**
+
+The Licensee shall not engage in Commercial Use of the Software, its Assets, Source Code or Derivative Works without obtaining prior express written authorisation from the Licensor.
+
+**3.2. Prohibited Activities**
+
+Without limiting Section 3.1, the Licensee shall not:
+
+(a) Sell, lease, rent, sublicense or otherwise commercially exploit the Software or any substantial portion thereof.
+
+(b) Sell access to the Software, its Source Code, Assets or Derivative Works.
+
+(c) Incorporate the Software or its Derivative Works into a commercial product, service, application or other offering.
+
+(d) Distribute paid versions, premium editions or paid-access versions of the Software.
+
+(e) Place the Software behind a paywall, subscription requirement or other monetary access restriction.
+
+(f) Charge users for access to modifications, plugins, extensions, maps, assets or other content derived from the Software.
+
+(g) Use the Abyss Engine to develop or distribute commercial software without prior written permission.
+
+(h) Use crowdfunding, donations tied to access, sponsorship arrangements or similar financial mechanisms as a means of circumventing these restrictions.
+
+**3.3. Commercial Distribution Platforms**
+
+The Licensee shall not distribute the Software or Derivative Works for a fee through commercial distribution platforms, including but not limited to Steam, Epic Games Store, GOG, Apple App Store or Google Play.
+
+**3.4. Independent Commercial Development**
+
+Nothing in this Licence prevents the Licensee from independently developing software that is functionally similar to the Software, provided that such development does not infringe the Licensor's intellectual property rights or incorporate materials protected by this Licence without authorisation.
+
+**3.5. Written Exceptions**
+
+The Licensor may grant individual commercial permissions, exceptions or alternative licensing arrangements at their sole discretion.
+
+Such permissions must be expressly documented in writing and may be subject to separate conditions.
+
+---
+
+## 4. MODIFICATIONS AND MODDING
+
+**4.1. Permitted Modifications**
+
+The Licensee may create, maintain and distribute modifications intended for use with Dynami and the UDM platform, provided that the modifications are distributed on a strictly non-commercial basis.
+
+**4.2. Mod Distribution**
+
+Modifications may be distributed through public repositories, community websites, modding platforms and other non-commercial distribution channels.
+
+**4.3. Prohibited Monetisation**
+
+The Licensee shall not:
+
+(a) Sell modifications or Derivative Works.
+
+(b) Require payment, subscriptions or donations as a condition of accessing modifications.
+
+(c) Place modifications behind paid memberships or access restrictions.
+
+(d) Sell exclusive access, early access or preferential distribution of modifications.
+
+(e) Use modifications as a means of indirectly monetising the Software.
+
+**4.4. Independent Mod Ownership**
+
+Subject to the Licensor's underlying rights in the Software, the Licensee retains ownership of original material independently created by the Licensee for a modification.
+
+The Licensee does not acquire ownership of the Software or any underlying intellectual property merely by creating or distributing a modification.
+
+**4.5. Compatibility and Endorsement**
+
+The Licensor does not guarantee compatibility with unofficial modifications and does not endorse any modification unless expressly stated.
+
+---
+
+## 5. INTELLECTUAL PROPERTY AND OWNERSHIP
+
+**5.1. Retention of Rights**
+
+The Licensor retains all right, title and interest in and to the Software, including all intellectual property rights owned by the Licensor.
+
+Nothing in this Licence transfers ownership of the Software to the Licensee.
+
+**5.2. Copyright and Attribution**
+
+The Licensee shall not remove, obscure, alter or misrepresent copyright notices, ownership declarations or other attribution information included with the Software.
+
+**5.3. Trademarks and Branding**
+
+This Licence does not grant permission to use the Dynami name, Abyss Engine name, associated logos, branding, trademarks or other identifying marks in a manner that suggests official affiliation, sponsorship or endorsement.
+
+**5.4. Contributions**
+
+Where the Licensee voluntarily submits Source Code, Assets, documentation or other original contributions to an official repository or development channel maintained by the Licensor, the Licensee grants the Licensor a perpetual, irrevocable, worldwide, royalty-free, non-exclusive licence to:
+
+(a) Use, reproduce and modify the contribution.
+
+(b) Incorporate the contribution into the Software and future releases.
+
+(c) Distribute the contribution as part of the Software or independently.
+
+(d) Create and distribute Derivative Works based on the contribution.
+
+(e) Sublicense the contribution as part of the Software or its associated distribution.
+
+This grant applies only to rights the contributor is legally entitled to license.
+
+The contributor retains ownership of their original contributions unless a separate written agreement provides otherwise.
+
+**5.5. No Third-Party Ownership Claims**
+
+The Licensee shall not claim ownership of intellectual property belonging to the Licensor or any third party.
+
+---
+
+## 6. THIRD-PARTY COMPONENTS
+
+**6.1. Separate Licensing**
+
+Third-Party Components may be subject to their own licences, copyright notices and distribution conditions.
+
+**6.2. Scope Exclusion**
+
+This Licence does not replace, override or modify the licences governing Third-Party Components.
+
+**6.3. Compliance**
+
+The Licensee is responsible for complying with applicable third-party licence terms when using, modifying or redistributing those components.
+
+**6.4. Ownership Limitations**
+
+The Licensor makes no claim of ownership over third-party materials merely because they are distributed alongside or incorporated into the Software.
+
+---
+
+## 7. TERM, TERMINATION AND EFFECTS
+
+**7.1. Term**
+
+This Licence remains effective for as long as the Licensee exercises rights granted under it, unless terminated in accordance with this Section.
+
+**7.2. Automatic Termination**
+
+The Licensee's rights under this Licence shall automatically terminate upon any material breach of its terms.
+
+**7.3. Effects of Termination**
+
+Upon termination, the Licensee must:
+
+(a) Immediately cease exercising the rights granted under this Licence.
+
+(b) Cease distributing the Software and any affected Derivative Works.
+
+(c) Remove unauthorised distributions under their control.
+
+(d) Destroy copies of the Software in their possession or control, where legally required.
+
+**7.4. Reinstatement**
+
+The Licensor may reinstate the Licensee's rights through express written permission.
+
+**7.5. Continuing Provisions**
+
+Sections concerning ownership, intellectual property, disclaimers, limitations of liability and other provisions that by their nature should survive termination shall remain effective to the extent permitted by applicable law.
+
+**7.6. Previously Distributed Copies**
+
+Termination does not automatically invalidate permissions previously granted to other Licensees who have independently obtained the Software in compliance with this Licence, provided that those Licensees remain compliant with its terms.
+
+---
+
+## 8. DISCLAIMER OF WARRANTY
+
+**8.1. General Disclaimer**
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER EXPRESS, IMPLIED OR STATUTORY, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+**8.2. Excluded Warranties**
+
+To the maximum extent permitted by applicable law, the Licensor disclaims warranties and conditions including, but not limited to:
+
+(a) MERCHANTABILITY.
+
+(b) FITNESS FOR A PARTICULAR PURPOSE.
+
+(c) NON-INFRINGEMENT.
+
+(d) ACCURACY OR COMPLETENESS.
+
+(e) AVAILABILITY OR UNINTERRUPTED OPERATION.
+
+(f) COMPATIBILITY WITH PARTICULAR HARDWARE OR SOFTWARE CONFIGURATIONS.
+
+**8.3. No Guarantee**
+
+The Licensor does not warrant that the Software will be free from defects, errors, vulnerabilities, interruptions, data loss or other technical issues.
+
+**8.4. Operational Risk**
+
+The Licensee assumes responsibility for evaluating the suitability of the Software for their intended use and for maintaining appropriate backups of their data.
+
+---
+
+## 9. LIMITATION OF LIABILITY
+
+**9.1. General Limitation**
+
+To the maximum extent permitted by applicable law, the Licensor shall not be liable for any indirect, incidental, special, exemplary, punitive or consequential damages arising out of or relating to the Software or this Licence.
+
+**9.2. Excluded Losses**
+
+To the maximum extent permitted by applicable law, the Licensor shall not be liable for:
+
+(a) Loss of data or saved progress.
+
+(b) Loss of profits, revenue or anticipated savings.
+
+(c) Hardware damage or system instability.
+
+(d) Business interruption.
+
+(e) Security incidents arising from unauthorised modifications or third-party components.
+
+(f) Any other indirect or consequential loss.
+
+**9.3. Applicable Law**
+
+Nothing in this Licence excludes or limits liability that cannot legally be excluded or limited under applicable law.
+
+---
+
+## 10. GOVERNING LAW AND JURISDICTION
+
+**10.1. Governing Law**
+
+This Licence, and any dispute or claim arising out of or in connection with it, including any non-contractual disputes or claims, shall be governed by and construed in accordance with the laws of England and Wales.
+
+**10.2. Jurisdiction**
+
+Subject to applicable mandatory legal provisions, the courts of England and Wales shall have exclusive jurisdiction to settle any dispute or claim arising out of or in connection with this Licence, including any non-contractual disputes or claims.
+
+**10.3. Severability**
+
+If any provision of this Licence is held to be invalid, unlawful or unenforceable by a competent court, that provision shall be modified to the minimum extent necessary to make it enforceable or, where modification is not possible, severed. The remaining provisions shall continue in full force and effect.
+
+**10.4. No Waiver**
+
+Failure or delay by the Licensor to exercise any right or remedy under this Licence shall not constitute a waiver of that right or remedy.
+
+---
+
+## 11. AMENDMENTS AND VERSIONING
+
+**11.1. Amendments**
+
+The Licensor reserves the right to publish revised versions of this Licence.
+
+**11.2. Existing Releases**
+
+Unless expressly stated otherwise, a revised Licence shall apply to releases designated as being distributed under that revised Licence.
+
+Previously distributed releases shall remain subject to the Licence version under which they were originally distributed, unless the relevant rights holders expressly agree otherwise or applicable law provides otherwise.
+
+**11.3. Version Identification**
+
+Each official distribution should identify the applicable Licence version.
+
+---
+
+## 12. ENTIRE AGREEMENT
+
+This Licence constitutes the agreement governing the rights expressly granted herein with respect to the Software.
+
+It does not override separate written agreements, third-party licences or mandatory legal rights.
+
+No amendment, exception or additional permission shall be binding unless expressly documented by the Licensor.
+
+---
+
+**END OF LICENCE**
+
+**Copyright © 2026 lightlybyt. All rights reserved.**
+
+Dynami is distributed under a proprietary, source-available, non-commercial licensing model. No commercial rights are granted by default.
