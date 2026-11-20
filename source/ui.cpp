@@ -74,7 +74,7 @@ void Render(VkRenderer& renderer, Screen screen, int w, int h, GLFWwindow* windo
     ImGui::SetWindowSize(ImVec2((float)w,(float)h));
     ImGui::BeginChild("sidebar", ImVec2(240,0), true);
     {
-        ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1), "DATS");
+        ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1), "Dynami 20.02");
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "DYNAMIC ARMS TRAINING SIMULATOR");
         ImGui::Spacing(); ImGui::Separator();
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "NAVIGATION");
@@ -96,7 +96,7 @@ void Render(VkRenderer& renderer, Screen screen, int w, int h, GLFWwindow* windo
     ImGui::BeginChild("content", ImVec2(0,0), true);
     {
         ImGui::TextColored(ImVec4(232/255.0f,232/255.0f,232/255.0f,1), ScreenLabel(screen));
-        ImGui::SameLine(); ImGui::Stretch();
+        ImGui::SameLine(); ImGui::.SetCursorPosX(400);
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "ONLINE");
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), ScreenSubtitle(screen));
@@ -144,33 +144,33 @@ static void DrawContentArea(Screen screen) {
             ImGui::Spacing();
             struct R{const char*c;const char*n;const char*s;};
             const R rows[]={{"001","Monomo","IN PROGRESS"},{"002","Regeneration","UNLOCKED"},{"003","Alternate","UNLOCKED"},{"004","Annihilation","UNLOCKED"}};
-            for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::Stretch();ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
+            for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::.SetCursorPosX(400);ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
             break;
-        case Screen::Credits:
+        case Screen::Credits: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"CREDITS");
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Built by Divine.");
             ImGui::Spacing();
             auto row=[](const char*k,const char*v){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),k);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),v);};
-            row("Project","DATS - Dynamic Arms Training Simulator");row("Engine","Abyss Engine vQ1.2026.1");row("Rendering","Vulkan 1.0");row("UI","Dear ImGui");row("Scripting","Embedded Python");row("Budget","$0.79 (unspent)");row("Studio","None");
+            row("Project","Dynami 20.02 - Dynamic Arms Training Simulator");row("Engine","Abyss Engine vQ1.2026.1");row("Rendering","Vulkan 1.0");row("UI","Dear ImGui");row("Scripting","Embedded Python");row("Budget","$0.79 (unspent)");row("Studio","None");
             ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"No flags. No bad guys. Just humans.");
             break;
-        case Screen::Login:
+        case Screen::Login: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"LOGIN");
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Enter your credentials.");
             ImGui::Spacing();
             static char user[128]={},pass[128]={};
             ImGui::InputText("Username",user,sizeof(user));ImGui::Spacing();
-            ImGui::InputTextPassword("Password",pass,sizeof(pass));ImGui::Spacing();
+            ImGui::InputText("Password",pass,sizeof(pass));ImGui::Spacing();
             if(ImGui::Button("SIGN IN")){std::string cmd="engine_set_loggedin(\""+std::string(user)+"\",\"user\")";Engine::ExecutePythonCommand(cmd);}
             ImGui::SameLine();
             if(ImGui::Button("REGISTER"))ShellExecuteA(nullptr,"open","http://127.0.0.1/register",nullptr,nullptr,SW_SHOWNORMAL);
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Owner account: lightlybyte / DivineAsiegbu123");
             break;
-        case Screen::Profile:
+        case Screen::Profile: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"PROFILE");
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Your account.");

@@ -33,7 +33,7 @@ static PyObject* py_echo(PyObject* /*self*/, PyObject* args) {
 
 static PyObject* py_deploy(PyObject* /*self*/, PyObject* /*args*/) {
     Engine::SetState(GameState::PLAYING);
-    std::cout << "[DATS] Deploying to server..." << std::endl;
+    std::cout << "[Dynami 20.02] Deploying to server..." << std::endl;
     Py_RETURN_NONE;
 }
 
@@ -43,14 +43,14 @@ static PyObject* py_quit(PyObject* /*self*/, PyObject* /*args*/) {
 }
 
 static PyObject* py_get_status(PyObject* /*self*/, PyObject* /*args*/) {
-    return PyUnicode_FromString("DATS v1.0 - Tactical Operations Command");
+    return PyUnicode_FromString("Dynami 20.02 v1.0 - Tactical Operations Command");
 }
 
 int main() {
-    std::cout << "[DATS] Booting..." << std::endl;
+    std::cout << "[Dynami 20.02] Booting..." << std::endl;
 
     if (!glfwInit()) {
-        std::cerr << "[DATS] FATAL: GLFW init failed." << std::endl;
+        std::cerr << "[Dynami 20.02] FATAL: GLFW init failed." << std::endl;
         return 1;
     }
 
@@ -61,9 +61,9 @@ int main() {
 
     int w = (int)kWidth, h = (int)kHeight;
     GLFWwindow* window = glfwCreateWindow(w, h,
-                                          "DATS", nullptr, nullptr);
+                                          "Dynami 20.02", nullptr, nullptr);
     if (!window) {
-        std::cerr << "[DATS] FATAL: window creation failed." << std::endl;
+        std::cerr << "[Dynami 20.02] FATAL: window creation failed." << std::endl;
         glfwTerminate();
         return 1;
     }
@@ -72,7 +72,7 @@ int main() {
 
     VkRenderer renderer;
     if (!renderer.init(window, kWidth, kHeight)) {
-        std::cerr << "[DATS] FATAL: renderer init failed." << std::endl;
+        std::cerr << "[Dynami 20.02] FATAL: renderer init failed." << std::endl;
         glfwDestroyWindow(window);
         glfwTerminate();
         return 1;
@@ -101,8 +101,7 @@ int main() {
             Engine::Update(renderer, dt);
             renderer.newFrame();
             Ui::Render(renderer, ToUi(g_menuScreen), w, h, window);
-            renderer.renderDrawData(ImGui::GetDrawData());
-        } else if (state == GameState::PLAYING) {
+                    } else if (state == GameState::PLAYING) {
             Engine::Update(renderer, dt);
             renderer.drawGameFrame();
         }

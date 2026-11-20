@@ -68,7 +68,7 @@ struct VkRendererImpl {
     void createInstance() {
         VkApplicationInfo app{};
         app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app.pApplicationName = "DATS";
+        app.pApplicationName = "Dynami 20.02";
         app.apiVersion = VK_API_VERSION_1_0;
 
         uint32_t extCount = 0;
@@ -566,9 +566,8 @@ struct VkRendererImpl {
             init_info.DescriptorPool = descriptorPool;
             init_info.MinImageCount = 2;
             init_info.ImageCount = (uint32_t)swapChainImages.size();
-            init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
             init_info.Allocator = nullptr;
-            init_info.CheckVkResultFn = nullptr;
             ImGui_ImplVulkan_Init(&init_info);
 
             startTime = std::chrono::high_resolution_clock::now();
@@ -760,7 +759,6 @@ struct VkRendererImpl {
         init_info.ImageCount = (uint32_t)swapChainImages.size();
         init_info.Allocator = nullptr;
         init_info.CheckVkResultFn = nullptr;
-        init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         ImGui_ImplVulkan_Init(&init_info);
     }
 

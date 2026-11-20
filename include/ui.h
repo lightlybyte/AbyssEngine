@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// ui.h — single header for the entire DATS menu system (Dear ImGui version).
+// ui.h — single header for the entire Dynami 20.02 menu system (Dear ImGui version).
 // ---------------------------------------------------------------------------
 
 struct GLFWwindow;

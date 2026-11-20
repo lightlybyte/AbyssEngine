@@ -116,7 +116,7 @@ def _probe_python_layout(root: Path):
 
 def _find_python():
     candidates = []
-    env = os.environ.get("DATS_PYTHON_ROOT")
+    env = os.environ.get("Dynami 20.02_PYTHON_ROOT")
     if env:
         candidates.append(Path(env))
     candidates.append(SYSTEM_PYTHON_ROOT)
@@ -142,7 +142,7 @@ PYTHON_ROOT, PYTHON_INC, PYTHON_LIB, PYTHON_DLL, PYTHON_VER = _find_python()
 if PYTHON_INC is None:
     print("[Compile] WARNING: Python development headers not found.")
     print(f"[Compile]   Looked at {SYSTEM_PYTHON_ROOT / 'include'}")
-    print(f"[Compile]   Set DATS_PYTHON_ROOT or PYTHON_ROOT to the CPython dev install.")
+    print(f"[Compile]   Set Dynami 20.02_PYTHON_ROOT or PYTHON_ROOT to the CPython dev install.")
     print("[Compile]   Windows: download from python.org (Windows embeddable package) or install via msi")
     print("[Compile]   Linux:  apt install libpython3-dev  (or equivalent)")
     PY_VER = "315"
@@ -334,7 +334,7 @@ def get_libs(platform):
     return LIBS_LINUX if platform.lower() == "linux" else LIBS_WINDOWS
 
 def get_exe_name(platform):
-    return "DATS.exe" if platform.lower() == "windows" else "DATS"
+    return "Dynami 20.02.exe" if platform.lower() == "windows" else "Dynami 20.02"
 
 def get_platform_dir(platform):
     return BUILD_ROOT / platform.capitalize()
