@@ -137,7 +137,7 @@ static void DrawContentArea(Screen screen) {
             ImGui::Spacing();
             if(ImGui::Button("EXECUTE")){if(Engine::IsPythonInitialized()&&inp[0])Engine::ExecutePythonCommand(inp);inp[0]=0;}
             break;
-        case Screen::Archive:
+        case Screen::Archive: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"MISSION LOG");
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Recorded operations.");
@@ -146,6 +146,7 @@ static void DrawContentArea(Screen screen) {
             const R rows[]={{"001","Monomo","IN PROGRESS"},{"002","Regeneration","UNLOCKED"},{"003","Alternate","UNLOCKED"},{"004","Annihilation","UNLOCKED"}};
             for(auto&r:rows){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.c);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),r.n);ImGui::SameLine();ImGui::SetCursorPosX(400);ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),r.s);ImGui::Separator();}
             break;
+        }
         case Screen::Credits: {
             ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1),"CREDITS");
             ImGui::Spacing();
