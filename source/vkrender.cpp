@@ -552,8 +552,7 @@ struct VkRendererImpl {
             auto q = findQueues(physicalDevice);
             if (q.graphics == UINT32_MAX) throw std::runtime_error("Invalid queue");
 
-            ctx = (ImGuiContext*)IM_NEW(ImGuiContext)();
-            ImGui::CreateContext();
+            ctx = ImGui::CreateContext();
             ImGuiIO& io = ImGui::GetIO();
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
             ImGui::StyleColorsDark();
@@ -571,8 +570,7 @@ struct VkRendererImpl {
             init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
             init_info.Allocator = nullptr;
             init_info.CheckVkResultFn = nullptr;
-            ImGui_ImplVulkan_Init(&init_info, renderPass);
-            ImGui_ImplVulkan_CreateFontsTexture();
+            ImGui_ImplVulkan_Init(&init_info);
 
             startTime = std::chrono::high_resolution_clock::now();
             return true;
@@ -746,8 +744,7 @@ struct VkRendererImpl {
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
-        ctx = (ImGuiContext*)IM_NEW(ImGuiContext)();
-        ImGui::CreateContext();
+        ctx = ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         ImGui::StyleColorsDark();
@@ -765,8 +762,7 @@ struct VkRendererImpl {
         init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         init_info.Allocator = nullptr;
         init_info.CheckVkResultFn = nullptr;
-        ImGui_ImplVulkan_Init(&init_info, renderPass);
-        ImGui_ImplVulkan_CreateFontsTexture();
+        ImGui_ImplVulkan_Init(&init_info);
     }
 
     ~VkRendererImpl() {

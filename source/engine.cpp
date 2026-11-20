@@ -254,16 +254,14 @@ void ApplyVSync(VkRenderer& renderer) { renderer.setVSync(g_settings.vsync); }
 
 void SetWindow(GLFWwindow* window) { g_window = window; }
 
-void RenderMenu(VkRenderer& renderer, struct nk_context* ctx) {
-    if (!ctx) return;
-
+void RenderMenu(VkRenderer& renderer) {
     int w = 1280, h = 720;
     if (g_window) {
         glfwGetFramebufferSize(g_window, &w, &h);
         if (w <= 0 || h <= 0) { w = 1280; h = 720; }
     }
 
-    Ui::Render(ctx, renderer, ToUi(g_menuScreen), w, h, g_window);
+    Ui::Render(renderer, g_menuScreen, w, h, g_window);
 
     if (g_quitRequested && g_window) {
         glfwSetWindowShouldClose(g_window, GLFW_TRUE);

@@ -10,6 +10,8 @@
 // (or tell me their real names and I'll wire them in).
 // ---------------------------------------------------------------------------
 
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui.h>
 #include "pyengine.h"
 #include <engine.h>
 #include <vkrender.h>
@@ -91,20 +93,14 @@ int main() {
 
         GameState state = Engine::GetState();
 
-        if (state == GameState::MENU) {
+        if (state == GameState::MENU || state == GameState::PAUSED) {
             Engine::Update(renderer, dt);
             renderer.newFrame();
-            Ui::Render(renderer, state, 1280, 720, window);
+            Ui::Render(renderer, state, w, h, window);
             renderer.renderDrawData(ImGui::GetDrawData());
         } else if (state == GameState::PLAYING) {
             Engine::Update(renderer, dt);
             renderer.drawGameFrame();
-        } else if (state == GameState::PAUSED) {
-            // Pause: show overlay menu on top of game
-            Engine::Update(renderer, dt);
-            renderer.beginUIFrame();
-            Engine::RenderMenu(renderer, renderer.ctx());
-            renderer.endUIFrame();
         }
 
         if (Engine::IsQuitRequested()) {
