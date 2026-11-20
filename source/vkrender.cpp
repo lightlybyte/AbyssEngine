@@ -14,7 +14,6 @@
 #include <fstream>
 
 // --- IMGUI SETUP ---
-#define IMGUI_DEFINE Vulkan
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -759,9 +758,9 @@ struct VkRendererImpl {
         init_info.DescriptorPool = descriptorPool;
         init_info.MinImageCount = 2;
         init_info.ImageCount = (uint32_t)swapChainImages.size();
-        init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         init_info.Allocator = nullptr;
         init_info.CheckVkResultFn = nullptr;
+        init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         ImGui_ImplVulkan_Init(&init_info);
     }
 

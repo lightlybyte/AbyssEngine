@@ -12,8 +12,11 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 #include "pyengine.h"
 #include <engine.h>
+#include <ui.h>
 #include <vkrender.h>
 
 #include <iostream>
@@ -56,7 +59,8 @@ int main() {
     const uint32_t kWidth  = 1280;
     const uint32_t kHeight = 720;
 
-    GLFWwindow* window = glfwCreateWindow((int)kWidth, (int)kHeight,
+    int w = (int)kWidth, h = (int)kHeight;
+    GLFWwindow* window = glfwCreateWindow(w, h,
                                           "DATS", nullptr, nullptr);
     if (!window) {
         std::cerr << "[DATS] FATAL: window creation failed." << std::endl;
@@ -96,7 +100,7 @@ int main() {
         if (state == GameState::MENU || state == GameState::PAUSED) {
             Engine::Update(renderer, dt);
             renderer.newFrame();
-            Ui::Render(renderer, state, w, h, window);
+            Ui::Render(renderer, ToUi(g_menuScreen), w, h, window);
             renderer.renderDrawData(ImGui::GetDrawData());
         } else if (state == GameState::PLAYING) {
             Engine::Update(renderer, dt);
