@@ -68,7 +68,7 @@ struct VkRendererImpl {
     void createInstance() {
         VkApplicationInfo app{};
         app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app.pApplicationName = "Dynami 20.02";
+        app.pApplicationName = "Dynami 20.09";
         app.apiVersion = VK_API_VERSION_1_0;
 
         uint32_t extCount = 0;

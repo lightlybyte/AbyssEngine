@@ -1,4 +1,4 @@
-# Dynami 20.02
+# Dynami 20.09
 
 *A tactical operations simulator built with Abyss Engine for a game jam.*
 
@@ -9,7 +9,7 @@
 > **Status:** Pre-alpha / game-jam engine. Not production-ready.
 > See [TOWORKON.md](TOWORKON.md) for the current engineering backlog.
 
-Dynami 20.02 is a tactical operations simulator powered by **Abyss Engine**.
+Dynami 20.09 is a tactical operations simulator powered by **Abyss Engine**.
 The client runs in C++/Vulkan; the server prototype is under development.
 
 ## Technical Architecture
@@ -80,6 +80,6 @@ Required dependencies:
 
 ## License
 
-DATS and Abyss Engine are distributed under the **Dynami 20.02 Source-Available License (DSAL) 1.0**.
+DATS and Abyss Engine are distributed under the **Dynami 20.09 Source-Available License (DSAL) 1.0**.
 
 This is **not** an OSI-approved open-source license. The source may be viewed and modified for personal or internal use. Commercial distribution, selling the binary, and monetization of the engine are prohibited. See LICENSE for full terms.

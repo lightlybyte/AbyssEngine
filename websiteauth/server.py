@@ -1,4 +1,4 @@
-# Dynami 20.02 Auth Server - connects to game via HTTP API
+# Dynami 20.09 Auth Server - connects to game via HTTP API
 from flask import Flask, request, jsonify
 import json, os, hashlib, secrets
 
@@ -87,5 +87,5 @@ def api_status():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    print(f'[Dynami 20.02 Auth] Server starting on port {port}')
+    print(f'[Dynami 20.09 Auth] Server starting on port {port}')
     app.run(host='0.0.0.0', port=port, debug=False)

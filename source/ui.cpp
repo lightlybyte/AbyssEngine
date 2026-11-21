@@ -74,7 +74,7 @@ void Render(VkRenderer& renderer, Screen screen, int w, int h, GLFWwindow* windo
     ImGui::SetWindowSize(ImVec2((float)w,(float)h));
     ImGui::BeginChild("sidebar", ImVec2(240,0), true);
     {
-        ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1), "Dynami 20.02");
+        ImGui::TextColored(ImVec4(248/255.0f,248/255.0f,248/255.0f,1), "Dynami 20.09");
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "DYNAMIC ARMS TRAINING SIMULATOR");
         ImGui::Spacing(); ImGui::Separator();
         ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1), "NAVIGATION");
@@ -153,7 +153,7 @@ static void DrawContentArea(Screen screen) {
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"Built by Divine.");
             ImGui::Spacing();
             auto row=[](const char*k,const char*v){ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),k);ImGui::SameLine();ImGui::TextColored(ImVec4(176/255.0f,176/255.0f,176/255.0f,1),v);};
-            row("Project","Dynami 20.02 - Dynamic Arms Training Simulator");row("Engine","Abyss Engine vQ1.2026.1");row("Rendering","Vulkan 1.0");row("UI","Dear ImGui");row("Scripting","Embedded Python");row("Budget","$0.79 (unspent)");row("Studio","None");
+            row("Project","Dynami 20.09 - Dynamic Arms Training Simulator");row("Engine","Abyss Engine vQ1.2026.1");row("Rendering","Vulkan 1.0");row("UI","Dear ImGui");row("Scripting","Embedded Python");row("Budget","$0.79 (unspent)");row("Studio","None");
             ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
             ImGui::TextColored(ImVec4(122/255.0f,122/255.0f,122/255.0f,1),"No flags. No bad guys. Just humans.");
             break;

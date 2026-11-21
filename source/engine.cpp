@@ -61,11 +61,11 @@ static Ui::Screen ToUi(MenuScreen s) {
 namespace Engine {
 
 void Init(VkRenderer& renderer) {
-    std::cout << "[Dynami 20.02] Engine initialized." << std::endl;
+    std::cout << "[Dynami 20.09] Engine initialized." << std::endl;
     LoadSettings("settings.json");
 
     if (!PyEngine::Init()) {
-        std::cerr << "[Dynami 20.02] WARNING: Python runtime failed to initialize." << std::endl;
+        std::cerr << "[Dynami 20.09] WARNING: Python runtime failed to initialize." << std::endl;
     } else {
         PyEngine::RegisterCallback("engine_echo",
             [](PyObject*, PyObject* args) -> PyObject* {
@@ -77,7 +77,7 @@ void Init(VkRenderer& renderer) {
         PyEngine::RegisterCallback("engine_deploy",
             [](PyObject*, PyObject*) -> PyObject* {
                 SetState(GameState::PLAYING);
-                std::cout << "[Dynami 20.02] Deploying to server..." << std::endl;
+                std::cout << "[Dynami 20.09] Deploying to server..." << std::endl;
                 Py_RETURN_NONE;
             });
         PyEngine::RegisterCallback("engine_quit",
@@ -87,7 +87,7 @@ void Init(VkRenderer& renderer) {
             });
         PyEngine::RegisterCallback("engine_get_status",
             [](PyObject*, PyObject*) -> PyObject* {
-                return PyUnicode_FromString("Dynami 20.02 v1.0 - Tactical Operations Command");
+                return PyUnicode_FromString("Dynami 20.09 v1.0 - Tactical Operations Command");
             });
         PyEngine::RegisterCallback("auth_login",
             [](PyObject*, PyObject* args) -> PyObject* {
@@ -162,7 +162,7 @@ except Exception as e:
 
 void Shutdown() {
     PyEngine::Shutdown();
-    std::cout << "[Dynami 20.02] Engine shutdown." << std::endl;
+    std::cout << "[Dynami 20.09] Engine shutdown." << std::endl;
 }
 
 GameState GetState() { return g_state; }
