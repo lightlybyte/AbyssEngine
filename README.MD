@@ -1,85 +1,195 @@
 # Dynami 20.09
 
-*A tactical operations simulator built with Abyss Engine for a game jam.*
+*A realistic, physics-driven simulation built with Abyss Engine.*
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
-![Vulkan](https://img.shields.io/badge/Vulkan-1.0-orange.svg)
-![License](https://img.shields.io/badge/License-DSAL%201.0-green.svg)
+![Vulkan](https://img.shields.io/badge/Graphics-Vulkan-orange.svg)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey.svg)
+![License](https://img.shields.io/badge/License-DSAL-green.svg)
+![Status](https://img.shields.io/badge/Status-Pre--Alpha-red.svg)
 
-> **Status:** Pre-alpha / game-jam engine. Not production-ready.
-> See [TOWORKON.md](TOWORKON.md) for the current engineering backlog.
+> **Status:** Pre-alpha. Under active development. Not production-ready.
 
-Dynami 20.09 is a tactical operations simulator powered by **Abyss Engine**.
-The client runs in C++/Vulkan; the server prototype is under development.
+See [TOWORKON.md](TOWORKON.md) for the engineering backlog.
+
+---
+
+## About
+
+**Dynami 20.09** is a physics-driven simulation set in a fictional city, developed using the custom **Abyss Engine**.
+
+Dynami prioritises systemic interactions, physical consequences, environmental simulation and believable character behaviour.
+
+Rather than relying on conventional arcade-style approximations, Dynami aims to simulate the underlying systems that govern its world.
+
+Dynami is part of a larger series. Each instalment can feature its own setting, characters, events and continuity.
+
+### Design principles
+
+- Physical consistency over arcade-style shortcuts.
+- Persistent consequences for player actions.
+- Believable environmental and character behaviour.
+- Detailed vehicle and rigid-body physics.
+- Reusable character assets and deformable clothing.
+- Performance-conscious engineering.
+- Cross-platform support.
+
+---
 
 ## Technical Architecture
 
-### Abyss Engine *(implemented)*
+### Abyss Engine
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Vulkan renderer | Implemented (Vulkan 1.0) | Nuklear overlay, swapchain recreation on resize/out-of-date |
-| Windowing / input | Implemented | GLFW 3, events polled each frame |
-| UI menu system | Implemented | Multi-screen Nuklear UI (main, settings, console, credits...) |
-| Python embedding | Implemented | CPython 3.x via python.cpp; registered native callbacks |
-| BPC GLB pipeline | Partial | Reads glTF 2.0 JSON + bin; classifies mesh primitives |
-| Physics prototype | Partial | Simple rigid-body stepping exists (physics.cpp) |
-| Game state machine | Implemented | GameState: MENU / PLAYING / PAUSED with transitions |
-| Wren scripting VM | Vendor files present | Header/source included but not wired into main loop yet |
+Abyss Engine is the custom technology powering Dynami.
 
-### Planned / not-yet-implemented
+| Component | Status | Description |
+|---|---|---|
+| Vulkan renderer | Implemented | Hardware-accelerated rendering |
+| Windows support | Implemented | Native Windows build |
+| Linux support | Implemented | Native Linux build |
+| Cross-compilation | Implemented | Build targets through the Python build system |
+| Windowing and input | Implemented | GLFW-based input and window management |
+| Physics engine | Implemented | Custom rigid-body solver |
+| Collision response | Implemented | Physical collision handling |
+| Constraint resolution | Implemented | Rigid-body constraint handling |
+| Character system | In development | Reusable character models and clothing |
+| Cloth simulation | In development | Deformable clothing |
+| Weather simulation | In development | Environmental conditions and their effects |
+| Phone interfaces | Planned | HTML, CSS and JavaScript-based device interfaces |
 
-The following are **planned** and must not be confused with shipped functionality:
+Implementation status refers to the current development branch and may change.
 
-- Server-authoritative networking (UDP 120–240 Hz)
-- Full ballistics / fluid-dynamics solver
-- FPV / DJI controller integration
-- UDM modding platform
-- Custom .blend parser (BPC C++ replacement)
-- opus-compressed audio streaming at target footprint
-- Procedural terrain/foliage generation
-- x86-64 assembly server tick path
+### Physics
 
-## Asset Pipeline
+Dynami uses a custom physics architecture.
 
-- **Current:** Python BPC reads .glb -> extracts positions/normals/UVs -> classifies primitives -> emits JSON instructions.
-- **Planned:** C++ GLB/BPC parser, hot-reload, cache, and runtime format versioning.
+Physics processing is performed across CPU and GPU workloads, with the CPU remaining primarily authoritative.
 
-## Known Limitations
+The engine includes:
 
-| Area | Limitation |
-|------|-----------|
-| Renderer | Vulkan 1.0 only; no validation layers in release builds; Intel HD Graphics 620 untested |
-| Resizing | Swapchain recreates on resize; zero-sized frames throw rather than silently drop |
-| Python | Single-threaded interpreter; GIL not acquired from worker threads |
-| GLB support | Sparse accessors / external buffers / normalized integer accessors unsupported |
-| Networking | None implemented |
-| Physics | Basic stepping only; no contact caching, no vehicle dynamics |
+- Rigid-body simulation.
+- Collision detection and response.
+- Constraint resolution.
+- Physical interactions between simulated objects.
 
-## Build
+The goal is to make physical interactions produce consequences based on the properties of the objects involved, rather than relying on predetermined arcade-style outcomes.
 
-See Compile.py for the build orchestrator.
+### Character System
+
+Dynami uses reusable human character models.
+
+The character production workflow uses:
+
+- Reallusion Character Creator 5 for base human models.
+- Blender for clothing creation and asset preparation.
+- Custom runtime systems for character behaviour and simulation.
+
+Clothing is intended to use deformable mesh simulation rather than being limited to conventional skeletal animation.
+
+### Phone System
+
+Dynami features physically usable in-game mobile phones.
+
+Their interfaces are built using:
+
+- HTML
+- CSS
+- JavaScript
+
+Individual devices can have different interfaces, layouts and hardware capabilities.
+
+The phone system is designed around the technological period represented by each instalment.
+
+---
+
+## Build System
+
+Dynami uses a Python-based TUI build orchestrator.
+
+The build system supports Windows and Linux targets, including cross-compilation.
+
+### Build
 
 ```bash
-# Windows
-python Compile.py       # launches interactive TUI
-
-# Linux (set vars before running)
-export PYTHON_ROOT=/usr
-export VULKAN_SDK=/opt/vulkan-sdk
+# Windows / Linux
 python Compile.py
 ```
 
-Required dependencies:
-- Toolchain: GCC 9+ or MSVC 19.2+
-- Vulkan SDK (provides glslc and vulkan-1.lib)
-- Python 3.8+ headers and shared lib (libpython3.x.a / python3x.lib)
-- GLFW 3 (vendored in include/GLFW/)
-- GLM (vendored in include/glm/)
-- Nuklear single-header (vendored in include/)
+The script launches the interactive build interface.
+
+### Dependencies
+
+The build environment requires the appropriate:
+
+- C++ compiler and toolchain.
+- Vulkan development libraries and SDK components.
+- Platform-specific dependencies.
+- Python runtime.
+
+Consult the build configuration for the exact requirements of each target.
+
+---
+
+## Asset Pipeline
+
+Dynami uses a custom asset pipeline for preparing and importing game assets.
+
+Character assets are created externally and integrated into the engine.
+
+The pipeline is intended to support efficient asset processing, runtime compatibility and reproducible builds.
+
+---
+
+## Performance and Distribution
+
+Dynami is developed with low-end hardware compatibility as an engineering consideration.
+
+The project aims to minimise unnecessary runtime overhead and keep the distribution footprint small.
+
+Current development builds are approximately **27 MB**, including approximately **13 MB of sound assets**. This figure may change as development progresses.
+
+---
+
+## Planned Development
+
+Features and improvements that remain subject to implementation and testing include:
+
+- Further environmental simulation.
+- Expanded NPC behaviour and relationships.
+- Additional vehicle systems.
+- Advanced character interactions.
+- Fully integrated mobile-device functionality.
+- Additional asset pipeline optimisations.
+- Further physics and rendering improvements.
+
+See [TOWORKON.md](TOWORKON.md) for current priorities.
+
+---
+
+## Known Limitations
+
+Dynami is pre-alpha software.
+
+Systems may be incomplete, experimental or subject to substantial changes.
+
+Performance, stability and compatibility are not guaranteed across all hardware configurations.
+
+---
 
 ## License
 
-DATS and Abyss Engine are distributed under the **Dynami 20.09 Source-Available License (DSAL) 1.0**.
+Dynami and Abyss Engine are distributed under the **Dynami Source-Available License (DSAL)**.
 
-This is **not** an OSI-approved open-source license. The source may be viewed and modified for personal or internal use. Commercial distribution, selling the binary, and monetization of the engine are prohibited. See LICENSE for full terms.
+This is **not an OSI-approved open-source licence**.
+
+The licence permits certain forms of personal and non-commercial use, subject to its terms. Commercial distribution, monetisation and other restricted activities require appropriate authorisation.
+
+See [LICENSE](LICENSE) for the complete terms.
+
+---
+
+## Disclaimer
+
+Dynami is an independent project and is not affiliated with, endorsed by or associated with any real-world organisations, manufacturers or third-party intellectual property holders unless explicitly stated.
+
+All third-party components remain subject to their respective licences.
